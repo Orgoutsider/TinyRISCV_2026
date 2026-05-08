@@ -102,7 +102,7 @@ module tinyriscv_soc_top(
     wire[`MemBus]     s0_data_o;
     wire[`MemBus]     s0_data_i;
     wire              s0_we_o;
-    // TODO: check new wire
+    // 这三个信号是 RIB 总线路由器与片外内存桥接器（chip_mem_bridge）之间的控制握手信号。
     wire              s0_req_o;
     wire              s0_is_ram_o;
     wire              s0_busy_i;

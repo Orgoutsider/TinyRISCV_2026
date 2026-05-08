@@ -19,7 +19,7 @@
  *   4: rdata[31:24]
  * Write response uses 8'h5A then four zero bytes.
  */
-`include "defines.v"
+`include "../core/defines.v"
 
 module chip_mem_bridge(
     input  wire       clk,
