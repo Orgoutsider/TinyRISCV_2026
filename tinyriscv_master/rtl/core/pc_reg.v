@@ -14,13 +14,13 @@
  limitations under the License.                                          
  */
 
-`include "defines.v"
+`include "defines.v" // 全局宏定义
 
 // PC寄存器模块
-module pc_reg(
+module pc_reg( // 模块声明
 
-    input wire clk,
-    input wire rst,
+    input wire clk, // 时钟信号
+    input wire rst, // 复位信号
 
     input wire jump_flag_i,                 // 跳转标志
     input wire[`InstAddrBus] jump_addr_i,   // 跳转地址
@@ -29,23 +29,23 @@ module pc_reg(
 
     output reg[`InstAddrBus] pc_o           // PC指针
 
-    );
+    ); // 端口列表结束
 
 
-    always @ (posedge clk) begin
+    always @ (posedge clk) begin // 时钟驱动PC更新
         // 复位
-        if (rst == `RstEnable || jtag_reset_flag_i == 1'b1) begin
-            pc_o <= `CpuResetAddr;
+        if (rst == `RstEnable || jtag_reset_flag_i == 1'b1) begin // 复位条件
+            pc_o <= `CpuResetAddr; // 复位地址
         // 跳转
-        end else if (jump_flag_i == `JumpEnable) begin
-            pc_o <= jump_addr_i;
+        end else if (jump_flag_i == `JumpEnable) begin // 跳转条件
+            pc_o <= jump_addr_i; // 更新为跳转地址
         // 暂停
-        end else if (hold_flag_i >= `Hold_Pc) begin
-            pc_o <= pc_o;
+        end else if (hold_flag_i >= `Hold_Pc) begin // 流水线暂停
+            pc_o <= pc_o; // 保持PC不变
         // 地址加4
-        end else begin
-            pc_o <= pc_o + 4'h4;
-        end
-    end
+        end else begin // 正常顺序执行
+            pc_o <= pc_o + 4'h4; // PC加4
+        end // if结束
+    end // always结束
 
-endmodule
+endmodule // 模块结束

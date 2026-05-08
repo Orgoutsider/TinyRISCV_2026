@@ -14,13 +14,13 @@
  limitations under the License.                                          
  */
 
-`include "defines.v"
+`include "defines.v" // 全局宏定义
 
 // 通用寄存器模块
-module regs(
+module regs( // 模块声明
 
-    input wire clk,
-    input wire rst,
+    input wire clk, // 时钟信号
+    input wire rst, // 复位信号
 
     // from ex
     input wire we_i,                      // 写寄存器标志
@@ -47,53 +47,53 @@ module regs(
     // to jtag
     output reg[`RegBus] jtag_data_o       // 读寄存器数据
 
-    );
+    ); // 端口列表结束
 
-    reg[`RegBus] regs[0:`RegNum - 1];
+    reg[`RegBus] regs[0:`RegNum - 1]; // 寄存器堆
 
     // 写寄存器
-    always @ (posedge clk) begin
-        if (rst == `RstDisable) begin
+    always @ (posedge clk) begin // 时钟上升沿写寄存器
+        if (rst == `RstDisable) begin // 非复位时写入
             // 优先ex模块写操作
-            if ((we_i == `WriteEnable) && (waddr_i != `ZeroReg)) begin
-                regs[waddr_i] <= wdata_i;
-            end else if ((jtag_we_i == `WriteEnable) && (jtag_addr_i != `ZeroReg)) begin
-                regs[jtag_addr_i] <= jtag_data_i;
-            end
-        end
-    end
+            if ((we_i == `WriteEnable) && (waddr_i != `ZeroReg)) begin // EX写有效且非x0
+                regs[waddr_i] <= wdata_i; // 写入EX数据
+            end else if ((jtag_we_i == `WriteEnable) && (jtag_addr_i != `ZeroReg)) begin // JTAG写有效且非x0
+                regs[jtag_addr_i] <= jtag_data_i; // 写入JTAG数据
+            end // if结束
+        end // if结束
+    end // always结束
 
     // 读寄存器1
-    always @ (*) begin
-        if (raddr1_i == `ZeroReg) begin
-            rdata1_o = `ZeroWord;
+    always @ (*) begin // 组合读端口1
+        if (raddr1_i == `ZeroReg) begin // 读x0
+            rdata1_o = `ZeroWord; // 返回0
         // 如果读地址等于写地址，并且正在写操作，则直接返回写数据
-        end else if (raddr1_i == waddr_i && we_i == `WriteEnable) begin
-            rdata1_o = wdata_i;
-        end else begin
-            rdata1_o = regs[raddr1_i];
-        end
-    end
+        end else if (raddr1_i == waddr_i && we_i == `WriteEnable) begin // 读写同地址
+            rdata1_o = wdata_i; // 旁路写数据
+        end else begin // 正常读
+            rdata1_o = regs[raddr1_i]; // 读寄存器值
+        end // if结束
+    end // always结束
 
     // 读寄存器2
-    always @ (*) begin
-        if (raddr2_i == `ZeroReg) begin
-            rdata2_o = `ZeroWord;
+    always @ (*) begin // 组合读端口2
+        if (raddr2_i == `ZeroReg) begin // 读x0
+            rdata2_o = `ZeroWord; // 返回0
         // 如果读地址等于写地址，并且正在写操作，则直接返回写数据
-        end else if (raddr2_i == waddr_i && we_i == `WriteEnable) begin
-            rdata2_o = wdata_i;
-        end else begin
-            rdata2_o = regs[raddr2_i];
-        end
-    end
+        end else if (raddr2_i == waddr_i && we_i == `WriteEnable) begin // 读写同地址
+            rdata2_o = wdata_i; // 旁路写数据
+        end else begin // 正常读
+            rdata2_o = regs[raddr2_i]; // 读寄存器值
+        end // if结束
+    end // always结束
 
     // jtag读寄存器
-    always @ (*) begin
-        if (jtag_addr_i == `ZeroReg) begin
-            jtag_data_o = `ZeroWord;
-        end else begin
-            jtag_data_o = regs[jtag_addr_i];
-        end
-    end
+    always @ (*) begin // 组合读端口JTAG
+        if (jtag_addr_i == `ZeroReg) begin // 读x0
+            jtag_data_o = `ZeroWord; // 返回0
+        end else begin // 正常读
+            jtag_data_o = regs[jtag_addr_i]; // 读寄存器值
+        end // if结束
+    end // always结束
 
-endmodule
+endmodule // 模块结束

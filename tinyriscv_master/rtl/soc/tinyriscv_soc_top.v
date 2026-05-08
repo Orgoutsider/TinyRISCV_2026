@@ -405,6 +405,7 @@ module tinyriscv_soc_top(
     );
 
     // 串口下载模块例化
+    // TODO: check this new module
     uart_debug u_uart_debug(
         .clk(clk),
         .rst(core_rst),
@@ -416,6 +417,8 @@ module tinyriscv_soc_top(
         .mem_rdata_i(m3_data_o)
     );
 
+    // pwm模块例化
+    // TODO: check this new module
     pwm u_pwm(
         .clk(clk),
         .rst(core_rst),
@@ -426,6 +429,7 @@ module tinyriscv_soc_top(
         .pwm_o(pwm_o_raw)
     );
 
+    // TODO: check this new module
     i2c_lm75 u_i2c(
         .clk(clk),
         .rst(core_rst),

@@ -14,15 +14,15 @@
  limitations under the License.                                          
  */
 
-`include "defines.v"
+`include "defines.v" // 全局宏定义
 
 // 除法模块
 // 试商法实现32位整数除法
 // 每次除法运算至少需要33个时钟周期才能完成
-module div(
+module div( // 模块声明
 
-    input wire clk,
-    input wire rst,
+    input wire clk, // 时钟信号
+    input wire rst, // 复位信号
 
     // from ex
     input wire[`RegBus] dividend_i,      // 被除数
@@ -37,177 +37,177 @@ module div(
     output reg busy_o,                  // 正在运算信号
     output reg[`RegAddrBus] reg_waddr_o  // 运算结束后需要写的寄存器
 
-    );
+    ); // 端口列表结束
 
     // 状态定义
-    localparam STATE_IDLE  = 4'b0001;
-    localparam STATE_START = 4'b0010;
-    localparam STATE_CALC  = 4'b0100;
-    localparam STATE_END   = 4'b1000;
+    localparam STATE_IDLE  = 4'b0001; // 空闲状态
+    localparam STATE_START = 4'b0010; // 启动状态
+    localparam STATE_CALC  = 4'b0100; // 计算状态
+    localparam STATE_END   = 4'b1000; // 结束状态
 
-    reg[`RegBus] dividend_r;
-    reg[`RegBus] divisor_r;
-    reg[2:0] op_r;
-    reg[3:0] state;
-    reg[31:0] count;
-    reg[`RegBus] div_result;
-    reg[`RegBus] div_remain;
-    reg[`RegBus] minuend;
-    reg invert_result;
+    reg[`RegBus] dividend_r; // 被除数寄存
+    reg[`RegBus] divisor_r; // 除数寄存
+    reg[2:0] op_r; // 运算类型寄存
+    reg[3:0] state; // 当前状态
+    reg[31:0] count; // 计数器
+    reg[`RegBus] div_result; // 商寄存
+    reg[`RegBus] div_remain; // 余数寄存
+    reg[`RegBus] minuend; // 当前被减数
+    reg invert_result; // 是否取补码标志
 
-    wire op_div = (op_r == `INST_DIV);
-    wire op_divu = (op_r == `INST_DIVU);
-    wire op_rem = (op_r == `INST_REM);
-    wire op_remu = (op_r == `INST_REMU);
+    wire op_div = (op_r == `INST_DIV); // 有符号除法
+    wire op_divu = (op_r == `INST_DIVU); // 无符号除法
+    wire op_rem = (op_r == `INST_REM); // 有符号取余
+    wire op_remu = (op_r == `INST_REMU); // 无符号取余
 
-    wire[31:0] dividend_invert = (-dividend_r);
-    wire[31:0] divisor_invert = (-divisor_r);
-    wire minuend_ge_divisor = minuend >= divisor_r;
-    wire[31:0] minuend_sub_res = minuend - divisor_r;
-    wire[31:0] div_result_tmp = minuend_ge_divisor? ({div_result[30:0], 1'b1}): ({div_result[30:0], 1'b0});
-    wire[31:0] minuend_tmp = minuend_ge_divisor? minuend_sub_res[30:0]: minuend[30:0];
+    wire[31:0] dividend_invert = (-dividend_r); // 被除数补码
+    wire[31:0] divisor_invert = (-divisor_r); // 除数补码
+    wire minuend_ge_divisor = minuend >= divisor_r; // 比较大小
+    wire[31:0] minuend_sub_res = minuend - divisor_r; // 减法结果
+    wire[31:0] div_result_tmp = minuend_ge_divisor? ({div_result[30:0], 1'b1}): ({div_result[30:0], 1'b0}); // 更新商
+    wire[31:0] minuend_tmp = minuend_ge_divisor? minuend_sub_res[30:0]: minuend[30:0]; // 更新被减数
 
     // 状态机实现
-    always @ (posedge clk) begin
-        if (rst == `RstEnable) begin
-            state <= STATE_IDLE;
-            ready_o <= `DivResultNotReady;
-            result_o <= `ZeroWord;
-            div_result <= `ZeroWord;
-            div_remain <= `ZeroWord;
-            op_r <= 3'h0;
-            reg_waddr_o <= `ZeroWord;
-            dividend_r <= `ZeroWord;
-            divisor_r <= `ZeroWord;
-            minuend <= `ZeroWord;
-            invert_result <= 1'b0;
-            busy_o <= `False;
-            count <= `ZeroWord;
-        end else begin
-            case (state)
-                STATE_IDLE: begin
-                    if (start_i == `DivStart) begin
-                        op_r <= op_i;
-                        dividend_r <= dividend_i;
-                        divisor_r <= divisor_i;
-                        reg_waddr_o <= reg_waddr_i;
-                        state <= STATE_START;
-                        busy_o <= `True;
-                    end else begin
-                        op_r <= 3'h0;
-                        reg_waddr_o <= `ZeroWord;
-                        dividend_r <= `ZeroWord;
-                        divisor_r <= `ZeroWord;
-                        ready_o <= `DivResultNotReady;
-                        result_o <= `ZeroWord;
-                        busy_o <= `False;
+    always @ (posedge clk) begin // 时钟驱动状态机
+        if (rst == `RstEnable) begin // 复位
+            state <= STATE_IDLE; // 状态清零
+            ready_o <= `DivResultNotReady; // 未完成
+            result_o <= `ZeroWord; // 结果清零
+            div_result <= `ZeroWord; // 商清零
+            div_remain <= `ZeroWord; // 余数清零
+            op_r <= 3'h0; // 操作清零
+            reg_waddr_o <= `ZeroWord; // 写地址清零
+            dividend_r <= `ZeroWord; // 被除数清零
+            divisor_r <= `ZeroWord; // 除数清零
+            minuend <= `ZeroWord; // 被减数清零
+            invert_result <= 1'b0; // 清补码标志
+            busy_o <= `False; // 不忙
+            count <= `ZeroWord; // 计数清零
+        end else begin // 正常时钟
+            case (state) // 状态机
+                STATE_IDLE: begin // 空闲状态
+                    if (start_i == `DivStart) begin // 启动除法
+                        op_r <= op_i; // 锁存操作类型
+                        dividend_r <= dividend_i; // 锁存被除数
+                        divisor_r <= divisor_i; // 锁存除数
+                        reg_waddr_o <= reg_waddr_i; // 锁存写地址
+                        state <= STATE_START; // 进入启动态
+                        busy_o <= `True; // 标记忙
+                    end else begin // 未启动
+                        op_r <= 3'h0; // 清操作
+                        reg_waddr_o <= `ZeroWord; // 清写地址
+                        dividend_r <= `ZeroWord; // 清被除数
+                        divisor_r <= `ZeroWord; // 清除数
+                        ready_o <= `DivResultNotReady; // 未完成
+                        result_o <= `ZeroWord; // 结果清零
+                        busy_o <= `False; // 不忙
                     end
                 end
 
-                STATE_START: begin
-                    if (start_i == `DivStart) begin
+                STATE_START: begin // 启动状态
+                    if (start_i == `DivStart) begin // 保持启动
                         // 除数为0
-                        if (divisor_r == `ZeroWord) begin
-                            if (op_div | op_divu) begin
-                                result_o <= 32'hffffffff;
-                            end else begin
-                                result_o <= dividend_r;
+                        if (divisor_r == `ZeroWord) begin // 除数为0
+                            if (op_div | op_divu) begin // 除法
+                                result_o <= 32'hffffffff; // 返回全1
+                            end else begin // 取余
+                                result_o <= dividend_r; // 返回被除数
                             end
-                            ready_o <= `DivResultReady;
-                            state <= STATE_IDLE;
-                            busy_o <= `False;
+                            ready_o <= `DivResultReady; // 完成
+                            state <= STATE_IDLE; // 回空闲
+                            busy_o <= `False; // 不忙
                         // 除数不为0
-                        end else begin
-                            busy_o <= `True;
-                            count <= 32'h40000000;
-                            state <= STATE_CALC;
-                            div_result <= `ZeroWord;
-                            div_remain <= `ZeroWord;
+                        end else begin // 除数非0
+                            busy_o <= `True; // 标记忙
+                            count <= 32'h40000000; // 初始化计数
+                            state <= STATE_CALC; // 进入计算态
+                            div_result <= `ZeroWord; // 商清零
+                            div_remain <= `ZeroWord; // 余数清零
 
                             // DIV和REM这两条指令是有符号数运算指令
-                            if (op_div | op_rem) begin
+                            if (op_div | op_rem) begin // 有符号运算
                                 // 被除数求补码
-                                if (dividend_r[31] == 1'b1) begin
-                                    dividend_r <= dividend_invert;
-                                    minuend <= dividend_invert[31];
-                                end else begin
-                                    minuend <= dividend_r[31];
+                                if (dividend_r[31] == 1'b1) begin // 被除数为负
+                                    dividend_r <= dividend_invert; // 转为正
+                                    minuend <= dividend_invert[31]; // 初始化被减数
+                                end else begin // 被除数为正
+                                    minuend <= dividend_r[31]; // 初始化被减数
                                 end
                                 // 除数求补码
-                                if (divisor_r[31] == 1'b1) begin
-                                    divisor_r <= divisor_invert;
+                                if (divisor_r[31] == 1'b1) begin // 除数为负
+                                    divisor_r <= divisor_invert; // 转为正
                                 end
-                            end else begin
-                                minuend <= dividend_r[31];
+                            end else begin // 无符号运算
+                                minuend <= dividend_r[31]; // 初始化被减数
                             end
 
                             // 运算结束后是否要对结果取补码
                             if ((op_div && (dividend_r[31] ^ divisor_r[31] == 1'b1))
-                                || (op_rem && (dividend_r[31] == 1'b1))) begin
-                                invert_result <= 1'b1;
-                            end else begin
-                                invert_result <= 1'b0;
+                                || (op_rem && (dividend_r[31] == 1'b1))) begin // 需要取补码
+                                invert_result <= 1'b1; // 置补码标志
+                            end else begin // 不需要补码
+                                invert_result <= 1'b0; // 清补码标志
                             end
                         end
-                    end else begin
-                        state <= STATE_IDLE;
-                        result_o <= `ZeroWord;
-                        ready_o <= `DivResultNotReady;
-                        busy_o <= `False;
+                    end else begin // 启动撤销
+                        state <= STATE_IDLE; // 回空闲
+                        result_o <= `ZeroWord; // 清结果
+                        ready_o <= `DivResultNotReady; // 未完成
+                        busy_o <= `False; // 不忙
                     end
                 end
 
-                STATE_CALC: begin
-                    if (start_i == `DivStart) begin
-                        dividend_r <= {dividend_r[30:0], 1'b0};
-                        div_result <= div_result_tmp;
-                        count <= {1'b0, count[31:1]};
-                        if (|count) begin
-                            minuend <= {minuend_tmp[30:0], dividend_r[30]};
-                        end else begin
-                            state <= STATE_END;
-                            if (minuend_ge_divisor) begin
-                                div_remain <= minuend_sub_res;
-                            end else begin
-                                div_remain <= minuend;
+                STATE_CALC: begin // 计算状态
+                    if (start_i == `DivStart) begin // 保持启动
+                        dividend_r <= {dividend_r[30:0], 1'b0}; // 左移被除数
+                        div_result <= div_result_tmp; // 更新商
+                        count <= {1'b0, count[31:1]}; // 计数右移
+                        if (|count) begin // 计数未结束
+                            minuend <= {minuend_tmp[30:0], dividend_r[30]}; // 更新被减数
+                        end else begin // 计数结束
+                            state <= STATE_END; // 进入结束态
+                            if (minuend_ge_divisor) begin // 可减
+                                div_remain <= minuend_sub_res; // 余数更新
+                            end else begin // 不可减
+                                div_remain <= minuend; // 余数保持
                             end
                         end
-                    end else begin
-                        state <= STATE_IDLE;
-                        result_o <= `ZeroWord;
-                        ready_o <= `DivResultNotReady;
-                        busy_o <= `False;
+                    end else begin // 启动撤销
+                        state <= STATE_IDLE; // 回空闲
+                        result_o <= `ZeroWord; // 清结果
+                        ready_o <= `DivResultNotReady; // 未完成
+                        busy_o <= `False; // 不忙
                     end
                 end
 
-                STATE_END: begin
-                    if (start_i == `DivStart) begin
-                        ready_o <= `DivResultReady;
-                        state <= STATE_IDLE;
-                        busy_o <= `False;
-                        if (op_div | op_divu) begin
-                            if (invert_result) begin
-                                result_o <= (-div_result);
-                            end else begin
-                                result_o <= div_result;
+                STATE_END: begin // 结束状态
+                    if (start_i == `DivStart) begin // 保持启动
+                        ready_o <= `DivResultReady; // 标记完成
+                        state <= STATE_IDLE; // 回空闲
+                        busy_o <= `False; // 不忙
+                        if (op_div | op_divu) begin // 除法结果
+                            if (invert_result) begin // 取补码
+                                result_o <= (-div_result); // 输出负商
+                            end else begin // 不取补码
+                                result_o <= div_result; // 输出正商
                             end
-                        end else begin
-                            if (invert_result) begin
-                                result_o <= (-div_remain);
-                            end else begin
-                                result_o <= div_remain;
+                        end else begin // 余数结果
+                            if (invert_result) begin // 取补码
+                                result_o <= (-div_remain); // 输出负余数
+                            end else begin // 不取补码
+                                result_o <= div_remain; // 输出正余数
                             end
                         end
-                    end else begin
-                        state <= STATE_IDLE;
-                        result_o <= `ZeroWord;
-                        ready_o <= `DivResultNotReady;
-                        busy_o <= `False;
+                    end else begin // 启动撤销
+                        state <= STATE_IDLE; // 回空闲
+                        result_o <= `ZeroWord; // 清结果
+                        ready_o <= `DivResultNotReady; // 未完成
+                        busy_o <= `False; // 不忙
                     end
                 end
 
-            endcase
-        end
-    end
+            endcase // case结束
+        end // if结束
+    end // always结束
 
-endmodule
+endmodule // 模块结束
