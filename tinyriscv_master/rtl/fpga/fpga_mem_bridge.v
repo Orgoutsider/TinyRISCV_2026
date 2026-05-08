@@ -4,6 +4,7 @@
  * ROM can optionally be preloaded from ROM_INIT_FILE for FPGA simulation/synthesis.
  */
 module fpga_mem_bridge #(
+    // TODO: may delete
     parameter ROM_INIT_FILE = ""
 )(
     input  wire       clk,
@@ -32,6 +33,7 @@ module fpga_mem_bridge #(
     reg[31:0] wdata_q;
     reg[31:0] rdata_q;
 
+    // TODO: Use block RAMs and ROMs for FPGA implementation if necessary.
     reg[31:0] rom[0:255];
     reg[31:0] ram[0:15];
 
