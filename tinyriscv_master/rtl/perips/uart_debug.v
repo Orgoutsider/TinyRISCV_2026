@@ -209,12 +209,19 @@ module uart_debug(
                     if (crc16 == {rx_data[34], rx_data[33]}) begin
                         response_type <= RESP_ACK;
                         if (packet_type == PACKET_FIRST) begin
-                            fw_file_size <= {rx_data[17], rx_data[18], rx_data[19], rx_data[20]};
+                            // fw_file_size <= {rx_data[17], rx_data[18], rx_data[19], rx_data[20]};
+                            fw_file_size <= {rx_data[25], rx_data[26], rx_data[27], rx_data[28]};
+                            // match FILE_SIZE_INDEX = 25
                             write_mem_addr <= `ROM_START_ADDR;
-                            if ({rx_data[17], rx_data[18], rx_data[19], rx_data[20]} == 32'h0000_0000) begin
+                            // if ({rx_data[17], rx_data[18], rx_data[19], rx_data[20]} == 32'h0000_0000) begin
+                            //     remain_packet_count <= 32'h0000_0000;
+                            // end else begin
+                            //     remain_packet_count <= ({rx_data[17], rx_data[18], rx_data[19], rx_data[20]} + 32'd31) >> 5;
+                            // end
+                            if ({rx_data[25], rx_data[26], rx_data[27], rx_data[28]} == 32'h0000_0000) begin
                                 remain_packet_count <= 32'h0000_0000;
                             end else begin
-                                remain_packet_count <= ({rx_data[17], rx_data[18], rx_data[19], rx_data[20]} + 32'd31) >> 5;
+                                remain_packet_count <= ({rx_data[25], rx_data[26], rx_data[27], rx_data[28]} + 32'd31) >> 5;
                             end
                             state <= S_WAIT_TX_IDLE;
                         end else begin
