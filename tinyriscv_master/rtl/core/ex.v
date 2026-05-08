@@ -942,6 +942,7 @@ module ex( // 执行模块声明
                         custom_start_o = custom_start_pulse; // single-cycle start pulse
                         custom_funct3_o = funct3; // 传递funct3
                         custom_imm_o = inst_i[31:20]; // 传递立即数
+                        // TODO: check id.v if it is correct
                         custom_rs1_data_o = reg1_rdata_i; // 传递rs1
                         custom_x31_data_o = reg2_rdata_i; // 传递x31
                         custom_rd_o = rd; // 传递rd

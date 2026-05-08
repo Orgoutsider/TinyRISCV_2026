@@ -10,7 +10,7 @@
  */
 
 module fpga_top #(
-    // may delete
+    // TODO: may delete
     parameter ROM_INIT_FILE = ""
 )(
     input  wire       clk,

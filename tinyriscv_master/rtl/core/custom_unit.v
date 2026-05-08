@@ -8,6 +8,7 @@
  * 请在最终提交前将DEFAULT_ID_*替换为自己的学号字节。
  */
 `include "defines.v" // 全局宏定义
+// 已经完成验证，有波形图
 
 module custom_unit #( // 自定义指令执行模块
     parameter ID_LEN = 10, // 学号字节数
@@ -25,6 +26,7 @@ module custom_unit #( // 自定义指令执行模块
     input  wire       clk, // 时钟信号
     input  wire       rst, // 复位信号
 
+    // 指令输入信号
     input  wire       start_i, // 启动请求
     input  wire[2:0]  funct3_i, // 指令funct3
     input  wire[11:0] imm_i, // 立即数
@@ -32,16 +34,21 @@ module custom_unit #( // 自定义指令执行模块
     input  wire[31:0] x31_data_i, // x31数据
     input  wire[4:0]  rd_i, // 目的寄存器地址
 
+    // 执行状态信号
     output reg        busy_o, // 忙标志
     output reg        ready_o, // 完成标志
+
+    // 寄存器写回信号
     output reg        reg_we_o, // 写回使能
     output reg [4:0]  reg_waddr_o, // 写回寄存器地址
     output reg [31:0] reg_wdata_o, // 写回寄存器数据
 
+    // UART 接口（与 uart_shared 通信）
     output reg        uart_tx_valid_o, // UART发送有效
     output reg [7:0]  uart_tx_data_o, // UART发送数据
     input  wire       uart_tx_ready_i, // UART可发送
 
+    // I2C 接口（与 i2c_lm75 通信）
     output reg        i2c_temp_req_o, // I2C温度请求
     input  wire       i2c_temp_valid_i, // I2C温度有效
     input  wire[7:0]  i2c_temp_data_i, // I2C温度数据
