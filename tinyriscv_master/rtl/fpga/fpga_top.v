@@ -29,17 +29,17 @@ module fpga_top #(
     input  wire       uart_rx_pin,
 
     // JTAG interface.
-    input  wire       jtag_TCK,
-    input  wire       jtag_TMS,
-    input  wire       jtag_TDI,
-    output wire       jtag_TDO,
+    // input  wire       jtag_TCK,
+    // input  wire       jtag_TMS,
+    // input  wire       jtag_TDI,
+    // output wire       jtag_TDO,
 
     // PWM output.
-    output wire[3:0]  pwm_o,
+    output wire[3:0]  PWM_o,
 
     // I2C interface for LM75.
-    output wire       i2c_scl,
-    inout  wire       i2c_sda
+    output wire       io_scl,
+    inout  wire       io_sda
 );
 
     // Internal 8-bit bridge wires.
@@ -48,6 +48,8 @@ module fpga_top #(
 
     // FPGA memory bridge -> SoC
     wire[7:0] fpga_to_chip_data;
+
+    wire jtag_TDO_unused;
 
     /*
      * Chip-side SoC.
@@ -69,17 +71,17 @@ module fpga_top #(
         .uart_tx_pin     (uart_tx_pin),
         .uart_rx_pin     (uart_rx_pin),
 
-        .jtag_TCK        (jtag_TCK),
-        .jtag_TMS        (jtag_TMS),
-        .jtag_TDI        (jtag_TDI),
-        .jtag_TDO        (jtag_TDO),
+        .jtag_TCK (1'b0),
+        .jtag_TMS (1'b1),
+        .jtag_TDI (1'b0),
+        .jtag_TDO (jtag_TDO_unused),
 
         .fpga_data_i     (fpga_to_chip_data),
         .fpga_data_o     (chip_to_fpga_data),
 
-        .pwm_o           (pwm_o),
-        .i2c_scl         (i2c_scl),
-        .i2c_sda         (i2c_sda)
+        .pwm_o           (PWM_o),
+        .i2c_scl         (io_scl),
+        .i2c_sda         (io_sda)
     );
 
     /*
