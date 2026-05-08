@@ -1,0 +1,15 @@
+===== COMMAND =====
+iverilog -g2012 -Wall -I core -o all_rtl_compile.vvp core\clint.v core\csr_reg.v core\ctrl.v core\custom_unit.v core\defines.v core\div.v core\ex.v core\id.v core\id_ex.v core\if_id.v core\pc_reg.v core\regs.v core\rib.v core\tinyriscv.v debug\jtag_dm.v debug\jtag_driver.v debug\jtag_top.v perips\chip_mem_bridge.v perips\i2c_lm75.v perips\pwm.v perips\uart.v perips\uart_debug.v perips\uart_shared.v soc\tinyriscv_soc_top.v utils\full_handshake_rx.v utils\full_handshake_tx.v utils\gen_buf.v utils\gen_dff.v fpga\fpga_mem_bridge.v
+===== OUTPUT =====
+core\regs.v:74: warning: @* is sensitive to all 32 words in array 'regs'.
+core\regs.v:86: warning: @* is sensitive to all 32 words in array 'regs'.
+core\regs.v:95: warning: @* is sensitive to all 32 words in array 'regs'.
+perips\pwm.v:75: warning: @* is sensitive to all 4 words in array 'period'.
+perips\pwm.v:76: warning: @* is sensitive to all 4 words in array 'period'.
+perips\pwm.v:77: warning: @* is sensitive to all 4 words in array 'period'.
+perips\pwm.v:78: warning: @* is sensitive to all 4 words in array 'period'.
+perips\pwm.v:79: warning: @* is sensitive to all 4 words in array 'high_time'.
+perips\pwm.v:80: warning: @* is sensitive to all 4 words in array 'high_time'.
+perips\pwm.v:81: warning: @* is sensitive to all 4 words in array 'high_time'.
+perips\pwm.v:82: warning: @* is sensitive to all 4 words in array 'high_time'.
+===== EXIT_CODE: 0 =====

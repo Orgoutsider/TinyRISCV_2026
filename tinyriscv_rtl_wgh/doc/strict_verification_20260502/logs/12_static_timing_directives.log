@@ -1,0 +1,11 @@
+===== COMMAND =====
+rg -n `timescale|timeunit|timeprecision|default_nettype core debug perips soc utils fpga sim
+===== OUTPUT =====
+sim\tb_i2c_lm75.v:1:`timescale 1ns/1ps
+sim\tb_chip_sel.v:1:`timescale 1ns/1ps
+sim\tb_custom_unit.v:1:`timescale 1ns/1ps
+sim\tb_mem_bridge.v:1:`timescale 1ns/1ps
+sim\tb_pwm.v:1:`timescale 1ns/1ps
+sim\tb_soc_load.v:1:`timescale 1ns/1ps
+sim\tb_soc_mem_ops.v:1:`timescale 1ns/1ps
+===== EXIT_CODE: 0 =====

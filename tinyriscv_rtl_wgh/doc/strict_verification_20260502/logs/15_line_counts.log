@@ -1,0 +1,40 @@
+===== COMMAND =====
+internal Python line count
+===== OUTPUT =====
+core\clint.v	241
+core\csr_reg.v	215
+core\ctrl.v	71
+core\custom_unit.v	192
+core\defines.v	173
+core\div.v	213
+core\ex.v	993
+core\id.v	342
+core\id_ex.v	111
+core\if_id.v	52
+core\pc_reg.v	51
+core\regs.v	99
+core\rib.v	283
+core\tinyriscv.v	522
+debug\jtag_dm.v	343
+debug\jtag_driver.v	295
+debug\jtag_top.v	108
+perips\chip_mem_bridge.v	111
+perips\i2c_lm75.v	252
+perips\pwm.v	93
+perips\uart.v	329
+perips\uart_debug.v	313
+perips\uart_shared.v	278
+soc\tinyriscv_soc_top.v	336
+utils\full_handshake_rx.v	128
+utils\full_handshake_tx.v	147
+utils\gen_buf.v	46
+utils\gen_dff.v	149
+fpga\fpga_mem_bridge.v	100
+sim\tb_chip_sel.v	75
+sim\tb_custom_unit.v	121
+sim\tb_i2c_lm75.v	60
+sim\tb_mem_bridge.v	86
+sim\tb_pwm.v	70
+sim\tb_soc_load.v	107
+sim\tb_soc_mem_ops.v	137
+===== EXIT_CODE: 0 =====

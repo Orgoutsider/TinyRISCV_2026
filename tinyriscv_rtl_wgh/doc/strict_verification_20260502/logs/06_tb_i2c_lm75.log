@@ -1,0 +1,8 @@
+===== COMMAND =====
+iverilog -g2012 -Wall -I core -o sim_i2c.vvp sim\tb_i2c_lm75.v perips\i2c_lm75.v && vvp sim_i2c.vvp
+===== OUTPUT =====
+perips\i2c_lm75.v:14: warning: timescale for i2c_lm75 inherited from another file.
+sim\tb_i2c_lm75.v:1: ...: The inherited timescale is here.
+PASS: tb_i2c_lm75
+sim\tb_i2c_lm75.v:58: $finish called at 871000 (1ps)
+===== EXIT_CODE: 0 =====

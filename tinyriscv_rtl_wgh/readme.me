@@ -1,0 +1,243 @@
+# tinyriscV 课程设计功能符合性与验证说明
+
+生成日期：2026-05-02
+
+## 0. 实验指导书明确要求
+
+附件 `数字大规模集成电路-project.pdf` 可抽取到的硬性要求如下：
+
+1. 基于开源 `tinyriscv` 独立修改，添加课程要求的拓展指令。
+2. 在 FPGA 上进行功能验证。
+3. 进行综合、仿真、后端等工作，提供 DRC 与 LVS clean 的 GDS 文件。
+4. 对流片回来的芯片进行功能与性能测试。
+5. 流片前两颗及更多芯片共用一个 IO Ring，通过 `chip_sel` 信号选择工作的芯片。
+
+说明：附件没有给出拓展指令的具体编码表。本工程当前声明并实现的拓展目标为 `sID`、`rT`、`if` 三条自定义指令，同时包含片外 ROM/RAM、PWM、I2C/LM75 等课程工程修改内容。下文按“指导书硬性要求 + 本工程声明目标”逐项给出源码证据和验证结果。
+
+## 1. 基于 tinyriscV 的独立修改
+
+设计证据：
+
+- 顶层仍使用 tinyriscV 经典结构：`soc/tinyriscv_soc_top.v` 实例化 `tinyriscv`、`rib`、JTAG、UART 等模块。
+- 编译入口为 `filelist_project.f`，列出芯片侧 RTL：`core`、`debug`、`perips`、`soc`、`utils`。
+- 已移除原片上 ROM/RAM、Timer、GPIO、SPI 的 SoC 实例；源码搜索 `module rom/ram/timer/gpio/spi` 和 `u_rom/u_ram/u_timer/u_gpio/u_spi` 未命中。
+
+验证：
+
+```powershell
+iverilog -g2012 -Wall -o .\sim_project.vvp -s tinyriscv_soc_top -f filelist_project.f
+```
+
+结果：通过 elaboration。剩余警告为 Icarus 对数组组合读的敏感性提示和 testbench timescale 提示，不是语法或连接错误。
+
+## 2. `chip_sel` 共 IO Ring 选择
+
+设计证据：
+
+- `soc/tinyriscv_soc_top.v:16` 定义 `chip_sel_i`。
+- `soc/tinyriscv_soc_top.v:41` 使用 `core_rst = rst & chip_sel_i`。`rst` 为低有效，`chip_sel_i=0` 时核心和外设均处于复位。
+- `soc/tinyriscv_soc_top.v:129/165/220/234/248/258/273/288` 将 `core_rst` 接入 CPU、RIB、片外桥、UART、PWM、I2C、UART debug、JTAG。
+- `soc/tinyriscv_soc_top.v:274` 对 UART debug 入口额外使用 `uart_debug_pin & chip_sel_i`，避免未选中芯片响应下载。
+
+验证：
+
+```powershell
+iverilog -g2012 -Wall -I core -o .\sim_chip_sel.vvp -f filelist_project.f sim\tb_chip_sel.v fpga\fpga_mem_bridge.v
+vvp .\sim_chip_sel.vvp
+```
+
+结果：`PASS: tb_chip_sel`。验证了 `chip_sel_i=0` 时核心 PC 保持复位地址，`chip_sel_i=1` 后核心恢复运行。
+
+注意：当前单芯片顶层通过 `chip_sel_i` 复位选择工作核心。真正“两颗及更多芯片共用 IO Ring”的 pad 级工程还需要在 IO Ring 顶层对多颗芯片输出做 mux/OE 选择，避免多个物理输出同时驱动同一 pad。该 pad 级 wrapper 不在当前 RTL 目录中。
+
+## 3. 拓展指令 `sID`、`rT`、`if`
+
+设计证据：
+
+- `core/defines.v:158-161` 定义自定义 opcode 和 funct3：
+  - `INST_CUSTOM = 7'b0101111`
+  - `INST_SID = 3'b000`
+  - `INST_RT = 3'b001`
+  - `INST_IFIRE = 3'b010`
+- `core/id.v:297-323` 完成三条自定义指令译码：
+  - `sID` 不写 GPR，跳到下一条。
+  - `rT` 保存 `rd`，等待执行单元写回温度。
+  - `if` 读取 `rs1` 与 `x31`，并准备 `rd` 写回。
+- `core/ex.v:904-950` 完成执行级行为：
+  - `sID` 触发 UART 发送学号。
+  - `rT` 触发 I2C 读 LM75，完成后写回 `x[rd]`。
+  - `if imm==0 && x[rs1] >= x31` 时触发 UART 发送 `x[rs1][7:0]` 并由 custom unit 写 0；其他路径按设计写回。
+- `core/ex.v:169-186` 将 custom unit 写回优先级接入寄存器写回，并在 custom busy 时暂停流水线。
+- `core/custom_unit.v:52-57` 定义 `sID/rT/if` 多周期状态机。
+- `core/custom_unit.v:129-173` 实现 UART/I2C 侧带操作和 GPR 写回。
+
+验证：
+
+```powershell
+iverilog -g2012 -Wall -I core -o .\sim_custom_unit.vvp sim\tb_custom_unit.v core\custom_unit.v
+vvp .\sim_custom_unit.vvp
+```
+
+结果：`PASS: tb_custom_unit`。覆盖 `sID` 10 字节发送、`rT` 温度写回、`if` 触发写 0。
+
+待最终提交前修改：
+
+- `core/custom_unit.v:14-23` 当前仍是占位学号 `2022123456`。必须替换成实际学号 ASCII，否则 `sID` 功能对个人提交不合格。
+
+## 4. 片外 ROM/RAM 与总线修正
+
+设计证据：
+
+- `core/defines.v:63-67` 定义地址空间：
+  - ROM: `0x0000_0000`
+  - RAM: `0x1000_0000`
+  - UART: `0x3000_0000`
+  - PWM: `0x6000_0000`
+  - I2C: `0x7000_0000`
+- `soc/tinyriscv_soc_top.v:32-33` 增加 8-bit `fpga_data_i/fpga_data_o` 片外存储接口。
+- `perips/chip_mem_bridge.v:40-105` 实现芯片侧 8-bit 串行请求/响应 FSM。
+- `fpga/fpga_mem_bridge.v:58-93` 实现 FPGA 侧响应 FSM，ROM 256 x 32-bit，RAM 16 x 32-bit。
+- `core/rib.v:76-79` 定义片外访问事务 FSM：`ST_IDLE/ST_ISSUE/ST_WAIT/ST_RESP`。
+- `core/rib.v:99-107` 锁定 off-chip 事务，并在取指响应后一拍 `defer_fetch`，避免当前指令尚未进入 EX 时下一次取指抢占片外桥。
+- `core/rib.v:269-279` 在 `ST_RESP` 中只把返回数据交给被锁定的 master，并产生正确的 PC/full pipeline 暂停。
+- `core/tinyriscv.v:192-201` 检测片外 load，禁止错误的单周期立即写回，改为等待片外事务完成后写回。
+- `core/tinyriscv.v:207-236` 覆盖 `LB/LH/LW/LBU/LHU` 的符号扩展与零扩展写回。
+
+失败原因复盘：
+
+- 原失败用例 `tb_soc_load` 中，CPU 取到 `lw` 后，RIB 已经发起下一条取指事务；`lw` 进入 EX 时片外桥被取指占用，数据 load 请求没有被锁存，导致写回错误。
+- 修正方法：RIB 改成显式事务 FSM，片外请求只在 `ST_ISSUE` 脉冲一拍；返回数据在 `ST_RESP` 只交给锁定 owner；取指响应后延迟一拍下一次取指；CPU 对片外 load 采用延迟写回。
+
+验证：
+
+```powershell
+iverilog -g2012 -Wall -I core -o .\sim_mem_bridge.vvp sim\tb_mem_bridge.v perips\chip_mem_bridge.v fpga\fpga_mem_bridge.v
+vvp .\sim_mem_bridge.vvp
+```
+
+结果：`PASS: tb_mem_bridge`。覆盖独立片外桥 ROM 读、RAM 写读。
+
+```powershell
+iverilog -g2012 -Wall -I core -o .\sim_soc_load.vvp -f filelist_project.f sim\tb_soc_load.v fpga\fpga_mem_bridge.v
+vvp .\sim_soc_load.vvp
+```
+
+结果：`PASS: tb_soc_load`。覆盖 CPU 从片外 RAM 执行 `lw` 并写回 `x5`。
+
+```powershell
+iverilog -g2012 -Wall -I core -o .\sim_soc_mem_ops.vvp -f filelist_project.f sim\tb_soc_mem_ops.v fpga\fpga_mem_bridge.v
+vvp .\sim_soc_mem_ops.vvp
+```
+
+结果：`PASS: tb_soc_mem_ops`。覆盖 `lw/lb/lbu/lh/lhu/sw` 经片外 RAM 的集成路径。
+
+## 5. UART debug 35 字节下载
+
+设计证据：
+
+- `perips/uart_debug.v:26-27` 定义 packet 长度 35 字节、payload 28 字节。
+- `perips/uart_debug.v:60` 仅在复位释放且 debug 使能时请求 RIB master-3。
+- `perips/uart_debug.v:114-128` 接收完整 35 字节后解析命令和 payload。
+- `perips/uart_debug.v:126-139` 将 28 字节 payload 写成 7 个 32-bit word。
+
+验证状态：
+
+- 该模块已随 `filelist_project.f` 通过顶层 elaboration。
+- 当前缺少助教上位机下载脚本，未做真实串口下载兼容性验证。若助教 packet 格式不同，必须按实际脚本重对齐字段。
+
+## 6. PWM 外设
+
+设计证据：
+
+- `perips/pwm.v:4-12` 注释给出寄存器地址。
+- `perips/pwm.v:26-28` 包含 4 路 period/high_time/enable 寄存器。
+- `perips/pwm.v:46-55` 实现寄存器写入。
+- `perips/pwm.v:74-83` 实现寄存器读回。
+- `perips/pwm.v:88-91` 输出 4 路 PWM。
+- `soc/tinyriscv_soc_top.v:248-253` 实例化并连接 `pwm_o[3:0]`。
+
+验证：
+
+```powershell
+iverilog -g2012 -Wall -I core -o .\sim_pwm.vvp sim\tb_pwm.v perips\pwm.v
+vvp .\sim_pwm.vvp
+```
+
+结果：`PASS: tb_pwm`。覆盖 period/high_time/enable 写入、读回和 PWM 高低相位。
+
+## 7. I2C/LM75 外设与 `rT` 侧带
+
+设计证据：
+
+- `perips/i2c_lm75.v:5-8` 注释给出 CTRL/ADDR/TX/RX 寄存器。
+- `perips/i2c_lm75.v:24-27` 提供 custom temperature request/valid/data 接口。
+- `perips/i2c_lm75.v:67-69` 使用 SDA 开漏式低电平驱动/释放模型。
+- `perips/i2c_lm75.v:93-101` 支持 MMIO 写启动和 custom request 启动。
+- `perips/i2c_lm75.v:231-244` 完成后置 `done`，输出 `custom_temp_valid_o` 和状态读回。
+- `soc/tinyriscv_soc_top.v:258-268` 实例化并连接 `i2c_scl/i2c_sda` 和 custom sideband。
+
+验证：
+
+```powershell
+iverilog -g2012 -Wall -I core -o .\sim_i2c.vvp sim\tb_i2c_lm75.v perips\i2c_lm75.v
+vvp .\sim_i2c.vvp
+```
+
+结果：`PASS: tb_i2c_lm75`。覆盖 custom 温度请求、完成脉冲、sticky `done` 状态。
+
+注意：该 testbench 未建完整 LM75 ACK/温度行为模型，只验证控制器完成机制。上板或门级前应增加 LM75 bus functional model。
+
+## 8. UART 共享发送
+
+设计证据：
+
+- `perips/uart_shared.v:22-24` 增加 custom TX 注入口。
+- `perips/uart_shared.v:68-71` 使用 TX busy 状态生成 ready，并输出 `tx_pin`。
+- `perips/uart_shared.v:104-110` 在 MMIO 未发送时接受 custom TX 字节。
+- `soc/tinyriscv_soc_top.v:234-243` 连接 CPU custom sideband 到 UART。
+
+验证：
+
+- 由 `tb_custom_unit` 覆盖 custom unit 的 valid/ready 使用。
+- UART bit-level TX/RX 与真实波特率仍需后续板级或专门 UART BFM 验证。
+
+## 9. 当前已执行的完整本地回归
+
+```powershell
+iverilog -g2012 -Wall -o .\sim_project.vvp -s tinyriscv_soc_top -f filelist_project.f
+iverilog -g2012 -Wall -I core -o .\sim_custom_unit.vvp sim\tb_custom_unit.v core\custom_unit.v
+vvp .\sim_custom_unit.vvp
+iverilog -g2012 -Wall -I core -o .\sim_pwm.vvp sim\tb_pwm.v perips\pwm.v
+vvp .\sim_pwm.vvp
+iverilog -g2012 -Wall -I core -o .\sim_i2c.vvp sim\tb_i2c_lm75.v perips\i2c_lm75.v
+vvp .\sim_i2c.vvp
+iverilog -g2012 -Wall -I core -o .\sim_mem_bridge.vvp sim\tb_mem_bridge.v perips\chip_mem_bridge.v fpga\fpga_mem_bridge.v
+vvp .\sim_mem_bridge.vvp
+iverilog -g2012 -Wall -I core -o .\sim_soc_load.vvp -f filelist_project.f sim\tb_soc_load.v fpga\fpga_mem_bridge.v
+vvp .\sim_soc_load.vvp
+iverilog -g2012 -Wall -I core -o .\sim_soc_mem_ops.vvp -f filelist_project.f sim\tb_soc_mem_ops.v fpga\fpga_mem_bridge.v
+vvp .\sim_soc_mem_ops.vvp
+iverilog -g2012 -Wall -I core -o .\sim_chip_sel.vvp -f filelist_project.f sim\tb_chip_sel.v fpga\fpga_mem_bridge.v
+vvp .\sim_chip_sel.vvp
+```
+
+结果汇总：
+
+- `top_elab`: PASS
+- `tb_custom_unit`: PASS
+- `tb_pwm`: PASS
+- `tb_i2c_lm75`: PASS
+- `tb_mem_bridge`: PASS
+- `tb_soc_load`: PASS
+- `tb_soc_mem_ops`: PASS
+- `tb_chip_sel`: PASS
+
+## 10. 尚不能声称完成的指导书事项
+
+以下事项不是 RTL 源码本身能单独证明的，当前仓库也未包含对应交付物，不能虚假声称完成：
+
+- FPGA 上板验证：本地已完成 Icarus Verilog 仿真；未运行助教提供的 FPGA 命令和板级下载脚本。
+- 综合/后端/DRC/LVS/GDS：当前没有 DC/Genus/Innovus/Calibre 等结果文件，也没有 GDS；必须在物理设计环境继续完成。
+- 回片测试：只有流片回来后才能做功能与性能测试。
+- pad 级多芯片 IO Ring：当前单芯片 top 有 `chip_sel_i` 复位选择；多芯片共 IO Ring 仍需顶层 pad wrapper 的输出 mux/OE 设计。
+

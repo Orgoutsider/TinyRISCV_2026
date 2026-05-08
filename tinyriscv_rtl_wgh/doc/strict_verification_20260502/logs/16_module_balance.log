@@ -1,0 +1,33 @@
+===== COMMAND =====
+internal Python module/endmodule balance
+===== OUTPUT =====
+core\clint.v	module=1	endmodule=1
+core\csr_reg.v	module=1	endmodule=1
+core\ctrl.v	module=1	endmodule=1
+core\custom_unit.v	module=1	endmodule=1
+core\defines.v	module=0	endmodule=0
+core\div.v	module=1	endmodule=1
+core\ex.v	module=1	endmodule=1
+core\id.v	module=1	endmodule=1
+core\id_ex.v	module=1	endmodule=1
+core\if_id.v	module=1	endmodule=1
+core\pc_reg.v	module=1	endmodule=1
+core\regs.v	module=1	endmodule=1
+core\rib.v	module=1	endmodule=1
+core\tinyriscv.v	module=1	endmodule=1
+debug\jtag_dm.v	module=1	endmodule=1
+debug\jtag_driver.v	module=1	endmodule=1
+debug\jtag_top.v	module=1	endmodule=1
+perips\chip_mem_bridge.v	module=1	endmodule=1
+perips\i2c_lm75.v	module=1	endmodule=1
+perips\pwm.v	module=1	endmodule=1
+perips\uart.v	module=1	endmodule=1
+perips\uart_debug.v	module=1	endmodule=1
+perips\uart_shared.v	module=1	endmodule=1
+soc\tinyriscv_soc_top.v	module=1	endmodule=1
+utils\full_handshake_rx.v	module=1	endmodule=1
+utils\full_handshake_tx.v	module=1	endmodule=1
+utils\gen_buf.v	module=1	endmodule=1
+utils\gen_dff.v	module=5	endmodule=5
+fpga\fpga_mem_bridge.v	module=1	endmodule=1
+===== EXIT_CODE: 0 =====

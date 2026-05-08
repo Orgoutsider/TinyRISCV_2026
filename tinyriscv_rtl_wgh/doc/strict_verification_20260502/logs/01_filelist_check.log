@@ -1,0 +1,35 @@
+===== COMMAND =====
+internal Python filelist check
+===== OUTPUT =====
++incdir+./core -> compiler option
++incdir+./utils -> compiler option
++incdir+./debug -> compiler option
++incdir+./perips -> compiler option
++incdir+./soc -> compiler option
+./utils/gen_dff.v -> True
+./utils/gen_buf.v -> True
+./utils/full_handshake_rx.v -> True
+./utils/full_handshake_tx.v -> True
+./core/clint.v -> True
+./core/csr_reg.v -> True
+./core/ctrl.v -> True
+./core/div.v -> True
+./core/regs.v -> True
+./core/pc_reg.v -> True
+./core/if_id.v -> True
+./core/id.v -> True
+./core/id_ex.v -> True
+./core/ex.v -> True
+./core/custom_unit.v -> True
+./core/rib.v -> True
+./core/tinyriscv.v -> True
+./debug/jtag_driver.v -> True
+./debug/jtag_dm.v -> True
+./debug/jtag_top.v -> True
+./perips/uart_shared.v -> True
+./perips/uart_debug.v -> True
+./perips/chip_mem_bridge.v -> True
+./perips/pwm.v -> True
+./perips/i2c_lm75.v -> True
+./soc/tinyriscv_soc_top.v -> True
+===== EXIT_CODE: 0 =====

@@ -1,0 +1,15 @@
+===== COMMAND =====
+iverilog -g2012 -Wall -o sim_project.vvp -s tinyriscv_soc_top -f filelist_project.f
+===== OUTPUT =====
+./core/regs.v:74: warning: @* is sensitive to all 32 words in array 'regs'.
+./core/regs.v:86: warning: @* is sensitive to all 32 words in array 'regs'.
+./core/regs.v:95: warning: @* is sensitive to all 32 words in array 'regs'.
+./perips/pwm.v:75: warning: @* is sensitive to all 4 words in array 'period'.
+./perips/pwm.v:76: warning: @* is sensitive to all 4 words in array 'period'.
+./perips/pwm.v:77: warning: @* is sensitive to all 4 words in array 'period'.
+./perips/pwm.v:78: warning: @* is sensitive to all 4 words in array 'period'.
+./perips/pwm.v:79: warning: @* is sensitive to all 4 words in array 'high_time'.
+./perips/pwm.v:80: warning: @* is sensitive to all 4 words in array 'high_time'.
+./perips/pwm.v:81: warning: @* is sensitive to all 4 words in array 'high_time'.
+./perips/pwm.v:82: warning: @* is sensitive to all 4 words in array 'high_time'.
+===== EXIT_CODE: 0 =====

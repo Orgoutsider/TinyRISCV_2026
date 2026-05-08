@@ -1,0 +1,18 @@
+===== COMMAND =====
+rg -n \b(casex|casez|force|release|deassign|forever|wait)\b|\$display|\$finish|\$stop|\$readmemh|1'bx|1'bz|32'hx|\binitial\b core debug perips soc utils fpga
+===== OUTPUT =====
+fpga\fpga_mem_bridge.v:39:    initial begin
+fpga\fpga_mem_bridge.v:43:            $readmemh(ROM_INIT_FILE, rom);
+perips\i2c_lm75.v:67:    assign i2c_sda = sda_oe_low ? 1'b0 : 1'bz;
+perips\i2c_lm75.v:153:                        sda_oe_low <= ~shifter[bit_cnt]; // release for 1, pull low for 0
+perips\i2c_lm75.v:172:                        sda_oe_low <= 1'b0;              // release for ACK
+perips\i2c_lm75.v:206:                        sda_oe_low <= 1'b0;              // NACK = release SDA
+perips\uart_debug.v:12: * CRC16 uses the original tinyriscV UART debug settings: initial value 16'hffff
+core\ex.v:936:                        hold_flag = (custom_ready_i == 1'b1) ? `HoldDisable : `HoldEnable; // wait for custom done
+core\ex.v:937:                        jump_flag = `JumpDisable; // no PC redirect; release hold to execute next instruction
+core\ex.v:948:                        hold_flag = (custom_ready_i == 1'b1) ? `HoldDisable : `HoldEnable; // wait for custom done
+core\ex.v:949:                        jump_flag = `JumpDisable; // no PC redirect; release hold to execute next instruction
+core\ex.v:962:                                hold_flag = (custom_ready_i == 1'b1) ? `HoldDisable : `HoldEnable; // wait for custom done
+core\ex.v:963:                                jump_flag = `JumpDisable; // no PC redirect; release hold to execute next instruction
+core\rib.v:9: *   WAIT  : wait for bridge busy to rise and then fall
+===== EXIT_CODE: 0 =====

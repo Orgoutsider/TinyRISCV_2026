@@ -1,0 +1,829 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>tinyriscv_project_mod 严格验证与代码规范审查报告</title>
+<style>
+@page { size: A4; margin: 14mm 13mm; }
+body {
+  font-family: "Microsoft YaHei", "SimSun", "Noto Sans CJK SC", Arial, sans-serif;
+  color: #172033;
+  line-height: 1.45;
+  font-size: 12px;
+}
+h1 { font-size: 24px; border-bottom: 2px solid #1f4e79; padding-bottom: 8px; }
+h2 { font-size: 18px; color: #1f4e79; margin-top: 22px; break-after: avoid; }
+h3 { font-size: 14px; color: #333; margin-top: 15px; break-after: avoid; }
+.meta { color: #555; margin-bottom: 18px; }
+.verdict { font-weight: 700; color: #9b1c1c; }
+table { border-collapse: collapse; width: 100%; margin: 8px 0 14px; page-break-inside: auto; }
+th, td { border: 1px solid #aab7c4; padding: 5px 6px; vertical-align: top; }
+th { background: #eaf1f7; color: #1d3348; }
+tr { page-break-inside: avoid; }
+pre {
+  font-family: Consolas, "Courier New", monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #f6f8fa;
+  border: 1px solid #d0d7de;
+  padding: 8px;
+  font-size: 8.4px;
+  line-height: 1.25;
+}
+.small { font-size: 10px; color: #555; }
+.pagebreak { break-before: page; }
+.pass { color: #0f6b36; font-weight: 700; }
+.warn { color: #9a6700; font-weight: 700; }
+.fail { color: #b42318; font-weight: 700; }
+</style>
+</head>
+<body>
+<h1>tinyriscv_project_mod 严格验证与代码规范审查报告</h1>
+<div class="meta">
+生成时间：2026-05-05 20:33:35<br>
+工程路径：E:\project-vlsi-20260422\tinyriscv_project_mod<br>
+指导书：c:\Users\Lenovo\Desktop\数字大规模集成电路-project.pdf<br>
+验证方式：Icarus Verilog 编译/仿真 + 静态源码扫描 + 人工芯片工程规范审查
+</div>
+
+<h2>1. 总结结论</h2>
+<p><span class="verdict">严格结论：当前 RTL 功能仿真通过，但还不能认定为流片签核完成。</span></p>
+<p>本次从头到尾重新运行了 filelist 检查、全部 RTL 编译、SoC 顶层 elaboration、七个 testbench、静态敏感语法扫描、源码行数统计和 module/endmodule 配平。所有可运行仿真均为 PASS，命令退出码均为 0。</p>
+<p>从芯片工程角度，仍有若干必须在 tapeout 前关闭的事项：综合/STA/CDC/DFT/APR/DRC/LVS/GDS 尚未提供，pad-level 多芯片 IO Ring wrapper 尚未实现，JTAG CDC、EX 关键路径、默认学号占位、warning-free lint 仍需处理。</p>
+
+<h2>2. 指导书要求逐项对照</h2>
+<table>
+<thead><tr>
+<th>编号</th>
+<th>指导书要求</th>
+<th>当前严格状态</th>
+<th>证据与说明</th>
+</tr></thead><tbody>
+<tr>
+<td>R1</td>
+<td>每人独立对 tinyriscV 进行修改，添加课程要求的拓展指令。</td>
+<td>PARTIAL PASS</td>
+<td>RTL 已实现 sID/rT/if 三条工程声明的自定义指令，并通过 tb_custom_unit；但指导书未给出拓展指令编码原表，真实课程编码仍需和助教确认。</td>
+</tr>
+<tr>
+<td>R2</td>
+<td>在 FPGA 上进行功能验证（助教提供运行指令）。</td>
+<td>NOT CLOSED</td>
+<td>仓库内已通过 FPGA 侧 bridge 模型仿真，但未进行真实 FPGA 板级运行和助教脚本验证。</td>
+</tr>
+<tr>
+<td>R3</td>
+<td>进行综合、仿真、后端等工作，提供 DRC 与 LVS clean 的 GDS 文件。</td>
+<td>NOT CLOSED</td>
+<td>仿真已通过；本环境无 Verilator/Yosys，且仓库无 PDK、综合脚本、APR、DRC/LVS 或 GDS。</td>
+</tr>
+<tr>
+<td>R4</td>
+<td>对流片回来的芯片进行功能与性能测试。</td>
+<td>FUTURE</td>
+<td>按指导书时间，回片测试在 2026.11-2026.12；当前无法完成。</td>
+</tr>
+<tr>
+<td>R5</td>
+<td>流片前两颗及更多芯片放在一个 IO Ring 内部共用 IO，通过 chip_sel 选择工作的芯片。</td>
+<td>PARTIAL PASS</td>
+<td>当前 SoC 有 chip_sel_i，并通过 tb_chip_sel；但 pad-level 多芯片 IO Ring wrapper 和输出 OE/mux 未在仓库中。</td>
+</tr>
+</tbody></table>
+
+<h2>3. 运行结果矩阵</h2>
+<table>
+<thead><tr>
+<th>步骤</th>
+<th>检查内容</th>
+<th>状态</th>
+<th>退出码</th>
+</tr></thead><tbody>
+<tr>
+<td>01_filelist_check</td>
+<td>filelist 完整性检查</td>
+<td>PASS</td>
+<td>0</td>
+</tr>
+<tr>
+<td>02_all_rtl_compile</td>
+<td>全部 RTL 源码编译</td>
+<td>PASS</td>
+<td>0</td>
+</tr>
+<tr>
+<td>03_top_elab</td>
+<td>SoC 顶层 elaboration</td>
+<td>PASS</td>
+<td>0</td>
+</tr>
+<tr>
+<td>04_tb_custom_unit</td>
+<td>自定义指令单元 sID/rT/if</td>
+<td>PASS</td>
+<td>0</td>
+</tr>
+<tr>
+<td>05_tb_pwm</td>
+<td>PWM 外设</td>
+<td>PASS</td>
+<td>0</td>
+</tr>
+<tr>
+<td>06_tb_i2c_lm75</td>
+<td>I2C/LM75 外设</td>
+<td>PASS</td>
+<td>0</td>
+</tr>
+<tr>
+<td>07_tb_mem_bridge</td>
+<td>芯片侧/FPGA 侧片外存储桥</td>
+<td>PASS</td>
+<td>0</td>
+</tr>
+<tr>
+<td>08_tb_soc_load</td>
+<td>SoC 片外取指与 load</td>
+<td>PASS</td>
+<td>0</td>
+</tr>
+<tr>
+<td>09_tb_soc_mem_ops</td>
+<td>SoC 片外 load/store/byte/halfword</td>
+<td>PASS</td>
+<td>0</td>
+</tr>
+<tr>
+<td>10_tb_chip_sel</td>
+<td>chip_sel 选择逻辑</td>
+<td>PASS</td>
+<td>0</td>
+</tr>
+<tr>
+<td>11_static_disallowed_constructs</td>
+<td>禁用/敏感语法扫描</td>
+<td>CHECKED</td>
+<td>0</td>
+</tr>
+<tr>
+<td>12_static_timing_directives</td>
+<td>timescale/default_nettype 扫描</td>
+<td>CHECKED</td>
+<td>0</td>
+</tr>
+<tr>
+<td>13_static_todos_placeholders</td>
+<td>TODO/占位项扫描</td>
+<td>CHECKED</td>
+<td>1</td>
+</tr>
+<tr>
+<td>14_static_tristate_inout</td>
+<td>inout/三态扫描</td>
+<td>CHECKED</td>
+<td>0</td>
+</tr>
+<tr>
+<td>15_line_counts</td>
+<td>源码行数统计</td>
+<td>PASS</td>
+<td>0</td>
+</tr>
+<tr>
+<td>16_module_balance</td>
+<td>module/endmodule 配平</td>
+<td>PASS</td>
+<td>0</td>
+</tr>
+</tbody></table>
+<p class="small">说明：静态扫描步骤的 CHECKED 表示扫描命令执行成功且命中项已在第 5 节解释，不等价于无风险。</p>
+
+<h2>4. 芯片工程师规范审查结论</h2>
+<table>
+<thead><tr>
+<th>严重级别</th>
+<th>问题</th>
+<th>工程判断</th>
+</tr></thead><tbody>
+<tr>
+<td>HIGH</td>
+<td>尚未达到流片签核闭环</td>
+<td>缺综合、STA、CDC/RDC、DFT、APR、DRC/LVS、GDS 和 pad-level IO Ring；因此当前不是 tapeout-ready。</td>
+</tr>
+<tr>
+<td>HIGH</td>
+<td>多芯片共 IO Ring 只完成 RTL 选择，未完成 pad 互斥</td>
+<td>chip_sel_i 能让未选芯片复位，但共享 pad 时还需要输出 mux/OE，避免多个 die 同时驱动同一 IO。</td>
+</tr>
+<tr>
+<td>MEDIUM</td>
+<td>EX 组合路径偏大</td>
+<td>core/ex.v 大 case + 组合乘法可能限制频率；高频目标建议多周期乘法或流水化。</td>
+</tr>
+<tr>
+<td>MEDIUM</td>
+<td>JTAG_TCK CDC 需签核</td>
+<td>debug/jtag_driver.v 使用 jtag_TCK，core 用 clk；虽有 full_handshake，仍需 CDC 工具确认。</td>
+</tr>
+<tr>
+<td>MEDIUM</td>
+<td>RTL 无统一 `default_nettype none`，多数 RTL 无显式 timescale</td>
+<td>这不是综合功能错误，但不符合严格流片 lint 风格。</td>
+</tr>
+<tr>
+<td>LOW</td>
+<td>Icarus warning 未完全清零</td>
+<td>regs/pwm 数组组合读触发 Icarus sensitivity warning；功能仿真 PASS，但建议清理到 warning-free。</td>
+</tr>
+<tr>
+<td>LOW</td>
+<td>占位学号未替换</td>
+<td>core/custom_unit.v DEFAULT_ID_* 目前是示例值。</td>
+</tr>
+</tbody></table>
+
+<h2>5. 逐文件代码规范审查</h2>
+<table>
+<thead><tr>
+<th>文件</th>
+<th>结论</th>
+<th>审查意见</th>
+</tr></thead><tbody>
+<tr>
+<td>core/defines.v</td>
+<td>PASS</td>
+<td>集中定义 reset、地址空间、RV32I/M/CSR、自定义指令宏。建议后续加入 default_nettype none。</td>
+</tr>
+<tr>
+<td>core/pc_reg.v</td>
+<td>PASS</td>
+<td>PC reset/hold/jump 逻辑清晰，组合路径短。</td>
+</tr>
+<tr>
+<td>core/if_id.v</td>
+<td>PASS</td>
+<td>流水寄存器用 gen_pipe_dff，hold 行为统一。</td>
+</tr>
+<tr>
+<td>core/id.v</td>
+<td>PASS</td>
+<td>译码组合块有默认赋值，未见锁存器风险；自定义指令译码已覆盖。</td>
+</tr>
+<tr>
+<td>core/id_ex.v</td>
+<td>PASS</td>
+<td>流水寄存器结构规则。</td>
+</tr>
+<tr>
+<td>core/ex.v</td>
+<td>PASS WITH FREQ RISK</td>
+<td>功能仿真通过；但 EX 是大组合块，并含组合乘法 mul_temp=mul_op1*mul_op2，是主要频率风险。</td>
+</tr>
+<tr>
+<td>core/regs.v</td>
+<td>PASS WITH WARNING</td>
+<td>功能可用；Icarus 对 regs 数组组合读给 warning。GPR 未 reset，ASIC 可接受但 boot 程序要避免读未初始化寄存器。</td>
+</tr>
+<tr>
+<td>core/csr_reg.v</td>
+<td>PASS / NEEDS MORE TEST</td>
+<td>编译通过，结构完整；当前回归未专门覆盖 CSR 指令和异常路径。</td>
+</tr>
+<tr>
+<td>core/clint.v</td>
+<td>PASS / NEEDS MORE TEST</td>
+<td>编译通过；当前回归未专门覆盖异常、mret、中断时序。</td>
+</tr>
+<tr>
+<td>core/div.v</td>
+<td>PASS / NEEDS MORE TEST</td>
+<td>编译通过；当前回归未专门覆盖 DIV/REM 边界条件。</td>
+</tr>
+<tr>
+<td>core/custom_unit.v</td>
+<td>PASS WITH SIGNOFF ITEM</td>
+<td>sID/rT/if 单测通过；DEFAULT_ID_* 仍是占位学号，流片前必须替换。</td>
+</tr>
+<tr>
+<td>core/ctrl.v</td>
+<td>PASS</td>
+<td>RIB full hold 与 PC-only hold 优先级清楚。</td>
+</tr>
+<tr>
+<td>core/rib.v</td>
+<td>PASS</td>
+<td>片外事务 FSM 锁 owner，解决多周期 bridge 与取指/访存竞争；建议后续加 formal liveness。</td>
+</tr>
+<tr>
+<td>core/tinyriscv.v</td>
+<td>PASS</td>
+<td>片外 load 延迟写回修复有效；建议扩大 RV32I/M 指令级回归。</td>
+</tr>
+<tr>
+<td>debug/jtag_driver.v</td>
+<td>COMPILE PASS / CDC REVIEW REQUIRED</td>
+<td>JTAG_TCK 时钟域存在，使用 full_handshake；流片前必须跑 CDC 约束和检查。</td>
+</tr>
+<tr>
+<td>debug/jtag_dm.v</td>
+<td>COMPILE PASS / NEEDS TEST</td>
+<td>DM 编译通过；当前回归未跑 JTAG transaction test。</td>
+</tr>
+<tr>
+<td>debug/jtag_top.v</td>
+<td>COMPILE PASS</td>
+<td>JTAG driver 和 DM 集成。</td>
+</tr>
+<tr>
+<td>perips/uart_shared.v</td>
+<td>PASS / NEEDS BFM</td>
+<td>MMIO/custom TX 共享路径结构清楚；当前未做真实 UART bit-level BFM 全覆盖。</td>
+</tr>
+<tr>
+<td>perips/uart_debug.v</td>
+<td>COMPILE PASS / NEEDS SCRIPT MATCH</td>
+<td>下载 FSM 编译通过；需与助教 UART 下载脚本逐字节对齐。</td>
+</tr>
+<tr>
+<td>perips/uart.v</td>
+<td>COMPILE PASS / LEGACY</td>
+<td>原 UART 模块未在当前 SoC 顶层实例化，可保留参考或后续移除。</td>
+</tr>
+<tr>
+<td>perips/pwm.v</td>
+<td>PASS WITH WARNING</td>
+<td>PWM 单测通过；Icarus 对数组读 warning，可接受但 lint 时建议清理。</td>
+</tr>
+<tr>
+<td>perips/i2c_lm75.v</td>
+<td>PASS / PROTOCOL LIMITED</td>
+<td>I2C 单测通过；SDA 三态只在 pad-facing inout；ACK/NACK 错误处理较简化。</td>
+</tr>
+<tr>
+<td>perips/chip_mem_bridge.v</td>
+<td>PASS</td>
+<td>固定 8-bit 帧协议测试通过；无 valid/ready/CRC，板级需关注鲁棒性。</td>
+</tr>
+<tr>
+<td>soc/tinyriscv_soc_top.v</td>
+<td>PASS / IO RING NOT CLOSED</td>
+<td>顶层集成和 chip_sel 仿真通过；pad-level 多芯片 IO Ring mux/OE 未实现。</td>
+</tr>
+<tr>
+<td>utils/full_handshake_tx.v</td>
+<td>COMPILE PASS / CDC REVIEW</td>
+<td>握手发送端结构正常；需 CDC signoff。</td>
+</tr>
+<tr>
+<td>utils/full_handshake_rx.v</td>
+<td>COMPILE PASS / CDC REVIEW</td>
+<td>握手接收端结构正常；需 CDC signoff。</td>
+</tr>
+<tr>
+<td>utils/gen_buf.v</td>
+<td>PASS</td>
+<td>参数化同步 buffer。</td>
+</tr>
+<tr>
+<td>utils/gen_dff.v</td>
+<td>PASS</td>
+<td>参数化 DFF 模块，module/endmodule 数量匹配。</td>
+</tr>
+<tr>
+<td>fpga/fpga_mem_bridge.v</td>
+<td>FPGA/SIM PASS</td>
+<td>作为 FPGA 侧模型含 initial/$readmemh；不应作为 ASIC chip RTL 直接综合。</td>
+</tr>
+</tbody></table>
+
+<h2>6. 静态扫描解释</h2>
+<p>禁用/敏感语法扫描命中项需要区分芯片 RTL 与 FPGA/仿真模型：</p>
+<ul>
+<li><b>fpga/fpga_mem_bridge.v:39,43</b> 使用 initial/$readmemh：这是 FPGA 侧 ROM/RAM 模型，不应作为 ASIC chip RTL 直接综合。</li>
+<li><b>perips/i2c_lm75.v:67</b> 使用 1'bz：该三态位于 I2C SDA pad-facing inout，符合开漏 I2C 语义；ASIC 后端需映射到开漏/三态 pad cell。</li>
+<li><b>core/rib.v:9</b> 的 WAIT 只是注释命中，不是 Verilog wait 语句。</li>
+<li>RTL 目录未发现 casex/casez/force/release/$display/$finish/$stop/1'bx 等高风险构造。</li>
+<li>只有 sim testbench 有 `timescale`，RTL 没有统一 timeunit/default_nettype；建议后续补充项目级规范。</li>
+</ul>
+
+<h2>7. 运行日志原文</h2>
+<p>以下为本次运行结果的原始日志。较长日志在本 PDF 中保留开头和结尾；完整日志同时保存在 <code>doc/strict_verification_20260502/logs/</code>。</p>
+<h3>01_filelist_check - filelist 完整性检查</h3>
+<pre>===== COMMAND =====
+internal Python filelist check
+===== OUTPUT =====
++incdir+./core -&gt; compiler option
++incdir+./utils -&gt; compiler option
++incdir+./debug -&gt; compiler option
++incdir+./perips -&gt; compiler option
++incdir+./soc -&gt; compiler option
+./utils/gen_dff.v -&gt; True
+./utils/gen_buf.v -&gt; True
+./utils/full_handshake_rx.v -&gt; True
+./utils/full_handshake_tx.v -&gt; True
+./core/clint.v -&gt; True
+./core/csr_reg.v -&gt; True
+./core/ctrl.v -&gt; True
+./core/div.v -&gt; True
+./core/regs.v -&gt; True
+./core/pc_reg.v -&gt; True
+./core/if_id.v -&gt; True
+./core/id.v -&gt; True
+./core/id_ex.v -&gt; True
+./core/ex.v -&gt; True
+./core/custom_unit.v -&gt; True
+./core/rib.v -&gt; True
+./core/tinyriscv.v -&gt; True
+./debug/jtag_driver.v -&gt; True
+./debug/jtag_dm.v -&gt; True
+./debug/jtag_top.v -&gt; True
+./perips/uart_shared.v -&gt; True
+./perips/uart_debug.v -&gt; True
+./perips/chip_mem_bridge.v -&gt; True
+./perips/pwm.v -&gt; True
+./perips/i2c_lm75.v -&gt; True
+./soc/tinyriscv_soc_top.v -&gt; True
+===== EXIT_CODE: 0 =====
+</pre><h3>02_all_rtl_compile - 全部 RTL 源码编译</h3>
+<pre>===== COMMAND =====
+iverilog -g2012 -Wall -I core -o all_rtl_compile.vvp core\clint.v core\csr_reg.v core\ctrl.v core\custom_unit.v core\defines.v core\div.v core\ex.v core\id.v core\id_ex.v core\if_id.v core\pc_reg.v core\regs.v core\rib.v core\tinyriscv.v debug\jtag_dm.v debug\jtag_driver.v debug\jtag_top.v perips\chip_mem_bridge.v perips\i2c_lm75.v perips\pwm.v perips\uart.v perips\uart_debug.v perips\uart_shared.v soc\tinyriscv_soc_top.v utils\full_handshake_rx.v utils\full_handshake_tx.v utils\gen_buf.v utils\gen_dff.v fpga\fpga_mem_bridge.v
+===== OUTPUT =====
+core\regs.v:74: warning: @* is sensitive to all 32 words in array &#x27;regs&#x27;.
+core\regs.v:86: warning: @* is sensitive to all 32 words in array &#x27;regs&#x27;.
+core\regs.v:95: warning: @* is sensitive to all 32 words in array &#x27;regs&#x27;.
+perips\pwm.v:75: warning: @* is sensitive to all 4 words in array &#x27;period&#x27;.
+perips\pwm.v:76: warning: @* is sensitive to all 4 words in array &#x27;period&#x27;.
+perips\pwm.v:77: warning: @* is sensitive to all 4 words in array &#x27;period&#x27;.
+perips\pwm.v:78: warning: @* is sensitive to all 4 words in array &#x27;period&#x27;.
+perips\pwm.v:79: warning: @* is sensitive to all 4 words in array &#x27;high_time&#x27;.
+perips\pwm.v:80: warning: @* is sensitive to all 4 words in array &#x27;high_time&#x27;.
+perips\pwm.v:81: warning: @* is sensitive to all 4 words in array &#x27;high_time&#x27;.
+perips\pwm.v:82: warning: @* is sensitive to all 4 words in array &#x27;high_time&#x27;.
+===== EXIT_CODE: 0 =====
+</pre><h3>03_top_elab - SoC 顶层 elaboration</h3>
+<pre>===== COMMAND =====
+iverilog -g2012 -Wall -o sim_project.vvp -s tinyriscv_soc_top -f filelist_project.f
+===== OUTPUT =====
+./core/regs.v:74: warning: @* is sensitive to all 32 words in array &#x27;regs&#x27;.
+./core/regs.v:86: warning: @* is sensitive to all 32 words in array &#x27;regs&#x27;.
+./core/regs.v:95: warning: @* is sensitive to all 32 words in array &#x27;regs&#x27;.
+./perips/pwm.v:75: warning: @* is sensitive to all 4 words in array &#x27;period&#x27;.
+./perips/pwm.v:76: warning: @* is sensitive to all 4 words in array &#x27;period&#x27;.
+./perips/pwm.v:77: warning: @* is sensitive to all 4 words in array &#x27;period&#x27;.
+./perips/pwm.v:78: warning: @* is sensitive to all 4 words in array &#x27;period&#x27;.
+./perips/pwm.v:79: warning: @* is sensitive to all 4 words in array &#x27;high_time&#x27;.
+./perips/pwm.v:80: warning: @* is sensitive to all 4 words in array &#x27;high_time&#x27;.
+./perips/pwm.v:81: warning: @* is sensitive to all 4 words in array &#x27;high_time&#x27;.
+./perips/pwm.v:82: warning: @* is sensitive to all 4 words in array &#x27;high_time&#x27;.
+===== EXIT_CODE: 0 =====
+</pre><h3>04_tb_custom_unit - 自定义指令单元 sID/rT/if</h3>
+<pre>===== COMMAND =====
+iverilog -g2012 -Wall -I core -o sim_custom_unit.vvp sim\tb_custom_unit.v core\custom_unit.v &amp;&amp; vvp sim_custom_unit.vvp
+===== OUTPUT =====
+core\custom_unit.v:12: warning: timescale for custom_unit inherited from another file.
+sim\tb_custom_unit.v:1: ...: The inherited timescale is here.
+PASS: tb_custom_unit
+sim\tb_custom_unit.v:110: $finish called at 435000 (1ps)
+===== EXIT_CODE: 0 =====
+</pre><h3>05_tb_pwm - PWM 外设</h3>
+<pre>===== COMMAND =====
+iverilog -g2012 -Wall -I core -o sim_pwm.vvp sim\tb_pwm.v perips\pwm.v &amp;&amp; vvp sim_pwm.vvp
+===== OUTPUT =====
+perips\pwm.v:16: warning: timescale for pwm inherited from another file.
+sim\tb_pwm.v:1: ...: The inherited timescale is here.
+perips\pwm.v:75: warning: @* is sensitive to all 4 words in array &#x27;period&#x27;.
+perips\pwm.v:76: warning: @* is sensitive to all 4 words in array &#x27;period&#x27;.
+perips\pwm.v:77: warning: @* is sensitive to all 4 words in array &#x27;period&#x27;.
+perips\pwm.v:78: warning: @* is sensitive to all 4 words in array &#x27;period&#x27;.
+perips\pwm.v:79: warning: @* is sensitive to all 4 words in array &#x27;high_time&#x27;.
+perips\pwm.v:80: warning: @* is sensitive to all 4 words in array &#x27;high_time&#x27;.
+perips\pwm.v:81: warning: @* is sensitive to all 4 words in array &#x27;high_time&#x27;.
+perips\pwm.v:82: warning: @* is sensitive to all 4 words in array &#x27;high_time&#x27;.
+PASS: tb_pwm
+sim\tb_pwm.v:68: $finish called at 116000 (1ps)
+===== EXIT_CODE: 0 =====
+</pre><h3>06_tb_i2c_lm75 - I2C/LM75 外设</h3>
+<pre>===== COMMAND =====
+iverilog -g2012 -Wall -I core -o sim_i2c.vvp sim\tb_i2c_lm75.v perips\i2c_lm75.v &amp;&amp; vvp sim_i2c.vvp
+===== OUTPUT =====
+perips\i2c_lm75.v:14: warning: timescale for i2c_lm75 inherited from another file.
+sim\tb_i2c_lm75.v:1: ...: The inherited timescale is here.
+PASS: tb_i2c_lm75
+sim\tb_i2c_lm75.v:58: $finish called at 871000 (1ps)
+===== EXIT_CODE: 0 =====
+</pre><h3>07_tb_mem_bridge - 芯片侧/FPGA 侧片外存储桥</h3>
+<pre>===== COMMAND =====
+iverilog -g2012 -Wall -I core -o sim_mem_bridge.vvp sim\tb_mem_bridge.v perips\chip_mem_bridge.v fpga\fpga_mem_bridge.v &amp;&amp; vvp sim_mem_bridge.vvp
+===== OUTPUT =====
+perips\chip_mem_bridge.v:24: warning: timescale for chip_mem_bridge inherited from another file.
+sim\tb_mem_bridge.v:1: ...: The inherited timescale is here.
+fpga\fpga_mem_bridge.v:6: warning: timescale for fpga_mem_bridge inherited from another file.
+sim\tb_mem_bridge.v:1: ...: The inherited timescale is here.
+PASS: tb_mem_bridge
+sim\tb_mem_bridge.v:84: $finish called at 540000 (1ps)
+===== EXIT_CODE: 0 =====
+</pre><h3>08_tb_soc_load - SoC 片外取指与 load</h3>
+<pre>===== COMMAND =====
+iverilog -g2012 -Wall -I core -o sim_soc_load.vvp -f filelist_project.f sim\tb_soc_load.v fpga\fpga_mem_bridge.v &amp;&amp; vvp sim_soc_load.vvp
+===== OUTPUT =====
+fpga\fpga_mem_bridge.v:6: warning: timescale for fpga_mem_bridge inherited from another file.
+sim\tb_soc_load.v:1: ...: The inherited timescale is here.
+warning: Some design elements have no explicit time unit and/or
+       : time precision. This may cause confusing timing results.
+       : Affected design elements are:
+       :   -- module chip_mem_bridge declared here: ./perips/chip_mem_bridge.v:24
+       :   -- module clint declared here: ./core/clint.v:21
+       :   -- module csr_reg declared here: ./core/csr_reg.v:20
+       :   -- module ctrl declared here: ./core/ctrl.v:21
+       :   -- module custom_unit declared here: ./core/custom_unit.v:12
+       :   -- module div declared here: ./core/div.v:22
+       :   -- module ex declared here: ./core/ex.v:21
+       :   -- module full_handshake_rx declared here: ./utils/full_handshake_rx.v:23
+       :   -- module full_handshake_tx declared here: ./utils/full_handshake_tx.v:23
+       :   -- module gen_en_dff declared here: ./utils/gen_dff.v:125
+       :   -- module gen_pipe_dff declared here: ./utils/gen_dff.v:18
+       :   -- module gen_rst_0_dff declared here: ./utils/gen_dff.v:46
+       :   -- module gen_rst_1_dff declared here: ./utils/gen_dff.v:72
+       :   -- module gen_rst_def_dff declared here: ./utils/gen_dff.v:98
+       :   -- module gen_ticks_sync declared here: ./utils/gen_buf.v:18
+       :   -- module i2c_lm75 declared here: ./perips/i2c_lm75.v:14
+       :   -- module id declared here: ./core/id.v:21
+       :   -- module id_ex declared here: ./core/id_ex.v:20
+       :   -- module if_id declared here: ./core/if_id.v:20
+       :   -- module jtag_dm declared here: ./debug/jtag_dm.v:27
+       :   -- module jtag_driver declared here: ./debug/jtag_driver.v:23
+       :   -- module jtag_top declared here: ./debug/jtag_top.v:20
+       :   -- module pc_reg declared here: ./core/pc_reg.v:20
+       :   -- module pwm declared here: ./perips/pwm.v:16
+       :   -- module regs declared here: ./core/regs.v:20
+       :   -- module rib declared here: ./core/rib.v:16
+       :   -- module tinyriscv declared here: ./core/tinyriscv.v:20
+       :   -- module tinyriscv_soc_top declared here: ./soc/tinyriscv_soc_top.v:20
+       :   -- module uart_debug declared here: ./perips/uart_debug.v:32
+       :   -- module uart_shared declared here: ./perips/uart_shared.v:12
+./core/regs.v:74: warning: @* is sensitive to all 32 words in array &#x27;regs&#x27;.
+./core/regs.v:86: warning: @* is sensitive to all 32 words in array &#x27;regs&#x27;.
+./core/regs.v:95: warning: @* is sensitive to all 32 words in array &#x27;regs&#x27;.
+./perips/pwm.v:75: warning: @* is sensitive to all 4 words in array &#x27;period&#x27;.
+./perips/pwm.v:76: warning: @* is sensitive to all 4 words in array &#x27;period&#x27;.
+./perips/pwm.v:77: warning: @* is sensitive to all 4 words in array &#x27;period&#x27;.
+./perips/pwm.v:78: warning: @* is sensitive to all 4 words in array &#x27;period&#x27;.
+./perips/pwm.v:79: warning: @* is sensitive to all 4 words in array &#x27;high_time&#x27;.
+./perips/pwm.v:80: warning: @* is sensitive to all 4 words in array &#x27;high_time&#x27;.
+./perips/pwm.v:81: warning: @* is sensitive to all 4 words in array &#x27;high_time&#x27;.
+./perips/pwm.v:82: warning: @* is sensitive to all 4 words in array &#x27;high_time&#x27;.
+PASS: tb_soc_load
+sim\tb_soc_load.v:105: $finish called at 3050000 (1ps)
+===== EXIT_CODE: 0 =====
+</pre><h3>09_tb_soc_mem_ops - SoC 片外 load/store/byte/halfword</h3>
+<pre>===== COMMAND =====
+iverilog -g2012 -Wall -I core -o sim_soc_mem_ops.vvp -f filelist_project.f sim\tb_soc_mem_ops.v fpga\fpga_mem_bridge.v &amp;&amp; vvp sim_soc_mem_ops.vvp
+===== OUTPUT =====
+fpga\fpga_mem_bridge.v:6: warning: timescale for fpga_mem_bridge inherited from another file.
+sim\tb_soc_mem_ops.v:1: ...: The inherited timescale is here.
+warning: Some design elements have no explicit time unit and/or
+       : time precision. This may cause confusing timing results.
+       : Affected design elements are:
+       :   -- module chip_mem_bridge declared here: ./perips/chip_mem_bridge.v:24
+       :   -- module clint declared here: ./core/clint.v:21
+       :   -- module csr_reg declared here: ./core/csr_reg.v:20
+       :   -- module ctrl declared here: ./core/ctrl.v:21
+       :   -- module custom_unit declared here: ./core/custom_unit.v:12
+       :   -- module div declared here: ./core/div.v:22
+       :   -- module ex declared here: ./core/ex.v:21
+       :   -- module full_handshake_rx declared here: ./utils/full_handshake_rx.v:23
+       :   -- module full_handshake_tx declared here: ./utils/full_handshake_tx.v:23
+       :   -- module gen_en_dff declared here: ./utils/gen_dff.v:125
+       :   -- module gen_pipe_dff declared here: ./utils/gen_dff.v:18
+       :   -- module gen_rst_0_dff declared here: ./utils/gen_dff.v:46
+       :   -- module gen_rst_1_dff declared here: ./utils/gen_dff.v:72
+       :   -- module gen_rst_def_dff declared here: ./utils/gen_dff.v:98
+       :   -- module gen_ticks_sync declared here: ./utils/gen_buf.v:18
+       :   -- module i2c_lm75 declared here: ./perips/i2c_lm75.v:14
+       :   -- module id declared here: ./core/id.v:21
+       :   -- module id_ex declared here: ./core/id_ex.v:20
+       :   -- module if_id declared here: ./core/if_id.v:20
+       :   -- module jtag_dm declared here: ./debug/jtag_dm.v:27
+       :   -- module jtag_driver declared here: ./debug/jtag_driver.v:23
+       :   -- module jtag_top declared here: ./debug/jtag_top.v:20
+       :   -- module pc_reg declared here: ./core/pc_reg.v:20
+       :   -- module pwm declared here: ./perips/pwm.v:16
+       :   -- module regs declared here: ./core/regs.v:20
+       :   -- module rib declared here: ./core/rib.v:16
+       :   -- module tinyriscv declared here: ./core/tinyriscv.v:20
+       :   -- module tinyriscv_soc_top declared here: ./soc/tinyriscv_soc_top.v:20
+       :   -- module uart_debug declared here: ./perips/uart_debug.v:32
+       :   -- module uart_shared declared here: ./perips/uart_shared.v:12
+./core/regs.v:74: warning: @* is sensitive to all 32 words in array &#x27;regs&#x27;.
+./core/regs.v:86: warning: @* is sensitive to all 32 words in array &#x27;regs&#x27;.
+./core/regs.v:95: warning: @* is sensitive to all 32 words in array &#x27;regs&#x27;.
+./perips/pwm.v:75: warning: @* is sensitive to all 4 words in array &#x27;period&#x27;.
+./perips/pwm.v:76: warning: @* is sensitive to all 4 words in array &#x27;period&#x27;.
+./perips/pwm.v:77: warning: @* is sensitive to all 4 words in array &#x27;period&#x27;.
+./perips/pwm.v:78: warning: @* is sensitive to all 4 words in array &#x27;period&#x27;.
+./perips/pwm.v:79: warning: @* is sensitive to all 4 words in array &#x27;high_time&#x27;.
+./perips/pwm.v:80: warning: @* is sensitive to all 4 words in array &#x27;high_time&#x27;.
+./perips/pwm.v:81: warning: @* is sensitive to all 4 words in array &#x27;high_time&#x27;.
+./perips/pwm.v:82: warning: @* is sensitive to all 4 words in array &#x27;high_time&#x27;.
+PASS: tb_soc_mem_ops
+sim\tb_soc_mem_ops.v:135: $finish called at 12050000 (1ps)
+===== EXIT_CODE: 0 =====
+</pre><h3>10_tb_chip_sel - chip_sel 选择逻辑</h3>
+<pre>===== COMMAND =====
+iverilog -g2012 -Wall -I core -o sim_chip_sel.vvp -f filelist_project.f sim\tb_chip_sel.v fpga\fpga_mem_bridge.v &amp;&amp; vvp sim_chip_sel.vvp
+===== OUTPUT =====
+fpga\fpga_mem_bridge.v:6: warning: timescale for fpga_mem_bridge inherited from another file.
+sim\tb_chip_sel.v:1: ...: The inherited timescale is here.
+warning: Some design elements have no explicit time unit and/or
+       : time precision. This may cause confusing timing results.
+       : Affected design elements are:
+       :   -- module chip_mem_bridge declared here: ./perips/chip_mem_bridge.v:24
+       :   -- module clint declared here: ./core/clint.v:21
+       :   -- module csr_reg declared here: ./core/csr_reg.v:20
+       :   -- module ctrl declared here: ./core/ctrl.v:21
+       :   -- module custom_unit declared here: ./core/custom_unit.v:12
+       :   -- module div declared here: ./core/div.v:22
+       :   -- module ex declared here: ./core/ex.v:21
+       :   -- module full_handshake_rx declared here: ./utils/full_handshake_rx.v:23
+       :   -- module full_handshake_tx declared here: ./utils/full_handshake_tx.v:23
+       :   -- module gen_en_dff declared here: ./utils/gen_dff.v:125
+       :   -- module gen_pipe_dff declared here: ./utils/gen_dff.v:18
+       :   -- module gen_rst_0_dff declared here: ./utils/gen_dff.v:46
+       :   -- module gen_rst_1_dff declared here: ./utils/gen_dff.v:72
+       :   -- module gen_rst_def_dff declared here: ./utils/gen_dff.v:98
+       :   -- module gen_ticks_sync declared here: ./utils/gen_buf.v:18
+       :   -- module i2c_lm75 declared here: ./perips/i2c_lm75.v:14
+       :   -- module id declared here: ./core/id.v:21
+       :   -- module id_ex declared here: ./core/id_ex.v:20
+       :   -- module if_id declared here: ./core/if_id.v:20
+       :   -- module jtag_dm declared here: ./debug/jtag_dm.v:27
+       :   -- module jtag_driver declared here: ./debug/jtag_driver.v:23
+       :   -- module jtag_top declared here: ./debug/jtag_top.v:20
+       :   -- module pc_reg declared here: ./core/pc_reg.v:20
+       :   -- module pwm declared here: ./perips/pwm.v:16
+       :   -- module regs declared here: ./core/regs.v:20
+       :   -- module rib declared here: ./core/rib.v:16
+       :   -- module tinyriscv declared here: ./core/tinyriscv.v:20
+       :   -- module tinyriscv_soc_top declared here: ./soc/tinyriscv_soc_top.v:20
+       :   -- module uart_debug declared here: ./perips/uart_debug.v:32
+       :   -- module uart_shared declared here: ./perips/uart_shared.v:12
+./core/regs.v:74: warning: @* is sensitive to all 32 words in array &#x27;regs&#x27;.
+./core/regs.v:86: warning: @* is sensitive to all 32 words in array &#x27;regs&#x27;.
+./core/regs.v:95: warning: @* is sensitive to all 32 words in array &#x27;regs&#x27;.
+./perips/pwm.v:75: warning: @* is sensitive to all 4 words in array &#x27;period&#x27;.
+./perips/pwm.v:76: warning: @* is sensitive to all 4 words in array &#x27;period&#x27;.
+./perips/pwm.v:77: warning: @* is sensitive to all 4 words in array &#x27;period&#x27;.
+./perips/pwm.v:78: warning: @* is sensitive to all 4 words in array &#x27;period&#x27;.
+./perips/pwm.v:79: warning: @* is sensitive to all 4 words in array &#x27;high_time&#x27;.
+./perips/pwm.v:80: warning: @* is sensitive to all 4 words in array &#x27;high_time&#x27;.
+./perips/pwm.v:81: warning: @* is sensitive to all 4 words in array &#x27;high_time&#x27;.
+./perips/pwm.v:82: warning: @* is sensitive to all 4 words in array &#x27;high_time&#x27;.
+PASS: tb_chip_sel
+sim\tb_chip_sel.v:73: $finish called at 2950000 (1ps)
+===== EXIT_CODE: 0 =====
+</pre><h3>11_static_disallowed_constructs - 禁用/敏感语法扫描</h3>
+<pre>===== COMMAND =====
+rg -n \b(casex|casez|force|release|deassign|forever|wait)\b|\$display|\$finish|\$stop|\$readmemh|1&#x27;bx|1&#x27;bz|32&#x27;hx|\binitial\b core debug perips soc utils fpga
+===== OUTPUT =====
+fpga\fpga_mem_bridge.v:39:    initial begin
+fpga\fpga_mem_bridge.v:43:            $readmemh(ROM_INIT_FILE, rom);
+perips\i2c_lm75.v:67:    assign i2c_sda = sda_oe_low ? 1&#x27;b0 : 1&#x27;bz;
+perips\i2c_lm75.v:153:                        sda_oe_low &lt;= ~shifter[bit_cnt]; // release for 1, pull low for 0
+perips\i2c_lm75.v:172:                        sda_oe_low &lt;= 1&#x27;b0;              // release for ACK
+perips\i2c_lm75.v:206:                        sda_oe_low &lt;= 1&#x27;b0;              // NACK = release SDA
+perips\uart_debug.v:12: * CRC16 uses the original tinyriscV UART debug settings: initial value 16&#x27;hffff
+core\ex.v:936:                        hold_flag = (custom_ready_i == 1&#x27;b1) ? `HoldDisable : `HoldEnable; // wait for custom done
+core\ex.v:937:                        jump_flag = `JumpDisable; // no PC redirect; release hold to execute next instruction
+core\ex.v:948:                        hold_flag = (custom_ready_i == 1&#x27;b1) ? `HoldDisable : `HoldEnable; // wait for custom done
+core\ex.v:949:                        jump_flag = `JumpDisable; // no PC redirect; release hold to execute next instruction
+core\ex.v:962:                                hold_flag = (custom_ready_i == 1&#x27;b1) ? `HoldDisable : `HoldEnable; // wait for custom done
+core\ex.v:963:                                jump_flag = `JumpDisable; // no PC redirect; release hold to execute next instruction
+core\rib.v:9: *   WAIT  : wait for bridge busy to rise and then fall
+===== EXIT_CODE: 0 =====
+</pre><h3>12_static_timing_directives - timescale/default_nettype 扫描</h3>
+<pre>===== COMMAND =====
+rg -n `timescale|timeunit|timeprecision|default_nettype core debug perips soc utils fpga sim
+===== OUTPUT =====
+sim\tb_i2c_lm75.v:1:`timescale 1ns/1ps
+sim\tb_chip_sel.v:1:`timescale 1ns/1ps
+sim\tb_custom_unit.v:1:`timescale 1ns/1ps
+sim\tb_mem_bridge.v:1:`timescale 1ns/1ps
+sim\tb_pwm.v:1:`timescale 1ns/1ps
+sim\tb_soc_load.v:1:`timescale 1ns/1ps
+sim\tb_soc_mem_ops.v:1:`timescale 1ns/1ps
+===== EXIT_CODE: 0 =====
+</pre><h3>13_static_todos_placeholders - TODO/占位项扫描</h3>
+<pre>===== COMMAND =====
+rg -n TODO|FIXME|XXX|Please replace|replace DEFAULT|signoff|流片|占位|placeholder core debug perips soc utils fpga
+===== OUTPUT =====
+
+===== EXIT_CODE: 1 =====
+</pre><h3>14_static_tristate_inout - inout/三态扫描</h3>
+<pre>===== COMMAND =====
+rg -n \binout\b|1&#x27;bz|\btri\b|\btri1\b|\bwand\b|\bwor\b core debug perips soc utils fpga sim
+===== OUTPUT =====
+soc\tinyriscv_soc_top.v:46:    inout  wire       i2c_sda
+perips\i2c_lm75.v:30:    inout  wire       i2c_sda
+perips\i2c_lm75.v:67:    assign i2c_sda = sda_oe_low ? 1&#x27;b0 : 1&#x27;bz;
+sim\tb_chip_sel.v:17:    tri1 i2c_sda;
+sim\tb_i2c_lm75.v:16:    tri1 sda;
+sim\tb_soc_load.v:22:    tri1 i2c_sda;
+sim\tb_soc_mem_ops.v:22:    tri1 i2c_sda;
+===== EXIT_CODE: 0 =====
+</pre><h3>15_line_counts - 源码行数统计</h3>
+<pre>===== COMMAND =====
+internal Python line count
+===== OUTPUT =====
+core\clint.v	241
+core\csr_reg.v	215
+core\ctrl.v	71
+core\custom_unit.v	192
+core\defines.v	173
+core\div.v	213
+core\ex.v	993
+core\id.v	342
+core\id_ex.v	111
+core\if_id.v	52
+core\pc_reg.v	51
+core\regs.v	99
+core\rib.v	283
+core\tinyriscv.v	522
+debug\jtag_dm.v	343
+debug\jtag_driver.v	295
+debug\jtag_top.v	108
+perips\chip_mem_bridge.v	111
+perips\i2c_lm75.v	252
+perips\pwm.v	93
+perips\uart.v	329
+perips\uart_debug.v	313
+perips\uart_shared.v	278
+soc\tinyriscv_soc_top.v	336
+utils\full_handshake_rx.v	128
+utils\full_handshake_tx.v	147
+utils\gen_buf.v	46
+utils\gen_dff.v	149
+fpga\fpga_mem_bridge.v	100
+sim\tb_chip_sel.v	75
+sim\tb_custom_unit.v	121
+sim\tb_i2c_lm75.v	60
+sim\tb_mem_bridge.v	86
+sim\tb_pwm.v	70
+sim\tb_soc_load.v	107
+sim\tb_soc_mem_ops.v	137
+===== EXIT_CODE: 0 =====
+</pre><h3>16_module_balance - module/endmodule 配平</h3>
+<pre>===== COMMAND =====
+internal Python module/endmodule balance
+===== OUTPUT =====
+core\clint.v	module=1	endmodule=1
+core\csr_reg.v	module=1	endmodule=1
+core\ctrl.v	module=1	endmodule=1
+core\custom_unit.v	module=1	endmodule=1
+core\defines.v	module=0	endmodule=0
+core\div.v	module=1	endmodule=1
+core\ex.v	module=1	endmodule=1
+core\id.v	module=1	endmodule=1
+core\id_ex.v	module=1	endmodule=1
+core\if_id.v	module=1	endmodule=1
+core\pc_reg.v	module=1	endmodule=1
+core\regs.v	module=1	endmodule=1
+core\rib.v	module=1	endmodule=1
+core\tinyriscv.v	module=1	endmodule=1
+debug\jtag_dm.v	module=1	endmodule=1
+debug\jtag_driver.v	module=1	endmodule=1
+debug\jtag_top.v	module=1	endmodule=1
+perips\chip_mem_bridge.v	module=1	endmodule=1
+perips\i2c_lm75.v	module=1	endmodule=1
+perips\pwm.v	module=1	endmodule=1
+perips\uart.v	module=1	endmodule=1
+perips\uart_debug.v	module=1	endmodule=1
+perips\uart_shared.v	module=1	endmodule=1
+soc\tinyriscv_soc_top.v	module=1	endmodule=1
+utils\full_handshake_rx.v	module=1	endmodule=1
+utils\full_handshake_tx.v	module=1	endmodule=1
+utils\gen_buf.v	module=1	endmodule=1
+utils\gen_dff.v	module=5	endmodule=5
+fpga\fpga_mem_bridge.v	module=1	endmodule=1
+===== EXIT_CODE: 0 =====
+</pre><h3>17_leftover_vvp - 临时仿真产物清理检查</h3>
+<pre>===== COMMAND =====
+internal Python leftover .vvp scan
+===== OUTPUT =====
+
+===== EXIT_CODE: 0 =====
+</pre>
+
+<h2 class="pagebreak">8. 流片前必须补齐的交付物</h2>
+<ol>
+<li>用课程或 MPW 平台指定工艺库完成综合，提交面积、频率、功耗、约束和 warning/error 报告。</li>
+<li>完成 STA，多 corner、多 mode，明确 false path、multicycle path、JTAG_TCK CDC 约束。</li>
+<li>完成 CDC/RDC 检查，重点检查 JTAG_TCK 与 core clk、异步 reset 释放、UART RX 异步输入。</li>
+<li>实现 pad-level IO Ring wrapper：多 die 共享输出必须由 chip_sel 控制 mux/OE，未选芯片输出必须高阻或不驱动。</li>
+<li>补 DFT/scan/测试模式，按课程或平台要求插入 scan chain。</li>
+<li>完成 APR、天线、IR/EM、DRC、LVS，提供 clean GDS。</li>
+<li>替换 core/custom_unit.v 的 DEFAULT_ID_* 学号占位。</li>
+<li>扩展验证：RV32I/M 指令回归、CSR/exception/mret、中断、JTAG transaction、UART downloader 与助教脚本、真实 FPGA 板级。</li>
+</ol>
+
+</body>
+</html>

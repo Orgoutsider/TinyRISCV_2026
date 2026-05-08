@@ -1,0 +1,10 @@
+===== COMMAND =====
+iverilog -g2012 -Wall -I core -o sim_mem_bridge.vvp sim\tb_mem_bridge.v perips\chip_mem_bridge.v fpga\fpga_mem_bridge.v && vvp sim_mem_bridge.vvp
+===== OUTPUT =====
+perips\chip_mem_bridge.v:24: warning: timescale for chip_mem_bridge inherited from another file.
+sim\tb_mem_bridge.v:1: ...: The inherited timescale is here.
+fpga\fpga_mem_bridge.v:6: warning: timescale for fpga_mem_bridge inherited from another file.
+sim\tb_mem_bridge.v:1: ...: The inherited timescale is here.
+PASS: tb_mem_bridge
+sim\tb_mem_bridge.v:84: $finish called at 540000 (1ps)
+===== EXIT_CODE: 0 =====

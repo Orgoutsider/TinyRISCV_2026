@@ -1,0 +1,23 @@
+tinyriscv_project_mod
+
+This project is a course-project modification of tinyriscV.
+
+Original project:
+  https://gitee.com/liangkangnan/tinyriscv
+
+Original tinyriscV source files are licensed under the Apache License,
+Version 2.0, as indicated by their file headers.
+
+Major project modifications in this repository include:
+  - reduced SoC top for course FPGA/tapeout validation;
+  - off-chip ROM/RAM bridge between chip RTL and FPGA-side memory model;
+  - four-channel PWM peripheral;
+  - I2C/LM75 temperature-read peripheral;
+  - shared UART path for MMIO and custom-instruction transmission;
+  - project custom instructions sID, rT, and if/ifire;
+  - chip_sel_i selection signal for future multi-chip IO Ring sharing;
+  - simulation testbenches and verification documentation.
+
+PDKs, commercial EDA setup files, standard-cell libraries, IO pad libraries,
+and foundry-specific collateral are intentionally not included.
+

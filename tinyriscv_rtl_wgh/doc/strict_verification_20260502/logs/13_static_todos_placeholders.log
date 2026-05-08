@@ -1,0 +1,5 @@
+===== COMMAND =====
+rg -n TODO|FIXME|XXX|Please replace|replace DEFAULT|signoff|流片|占位|placeholder core debug perips soc utils fpga
+===== OUTPUT =====
+
+===== EXIT_CODE: 1 =====

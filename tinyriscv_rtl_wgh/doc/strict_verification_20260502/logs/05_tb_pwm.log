@@ -1,0 +1,16 @@
+===== COMMAND =====
+iverilog -g2012 -Wall -I core -o sim_pwm.vvp sim\tb_pwm.v perips\pwm.v && vvp sim_pwm.vvp
+===== OUTPUT =====
+perips\pwm.v:16: warning: timescale for pwm inherited from another file.
+sim\tb_pwm.v:1: ...: The inherited timescale is here.
+perips\pwm.v:75: warning: @* is sensitive to all 4 words in array 'period'.
+perips\pwm.v:76: warning: @* is sensitive to all 4 words in array 'period'.
+perips\pwm.v:77: warning: @* is sensitive to all 4 words in array 'period'.
+perips\pwm.v:78: warning: @* is sensitive to all 4 words in array 'period'.
+perips\pwm.v:79: warning: @* is sensitive to all 4 words in array 'high_time'.
+perips\pwm.v:80: warning: @* is sensitive to all 4 words in array 'high_time'.
+perips\pwm.v:81: warning: @* is sensitive to all 4 words in array 'high_time'.
+perips\pwm.v:82: warning: @* is sensitive to all 4 words in array 'high_time'.
+PASS: tb_pwm
+sim\tb_pwm.v:68: $finish called at 116000 (1ps)
+===== EXIT_CODE: 0 =====

@@ -1,0 +1,52 @@
+===== COMMAND =====
+iverilog -g2012 -Wall -I core -o sim_soc_load.vvp -f filelist_project.f sim\tb_soc_load.v fpga\fpga_mem_bridge.v && vvp sim_soc_load.vvp
+===== OUTPUT =====
+fpga\fpga_mem_bridge.v:6: warning: timescale for fpga_mem_bridge inherited from another file.
+sim\tb_soc_load.v:1: ...: The inherited timescale is here.
+warning: Some design elements have no explicit time unit and/or
+       : time precision. This may cause confusing timing results.
+       : Affected design elements are:
+       :   -- module chip_mem_bridge declared here: ./perips/chip_mem_bridge.v:24
+       :   -- module clint declared here: ./core/clint.v:21
+       :   -- module csr_reg declared here: ./core/csr_reg.v:20
+       :   -- module ctrl declared here: ./core/ctrl.v:21
+       :   -- module custom_unit declared here: ./core/custom_unit.v:12
+       :   -- module div declared here: ./core/div.v:22
+       :   -- module ex declared here: ./core/ex.v:21
+       :   -- module full_handshake_rx declared here: ./utils/full_handshake_rx.v:23
+       :   -- module full_handshake_tx declared here: ./utils/full_handshake_tx.v:23
+       :   -- module gen_en_dff declared here: ./utils/gen_dff.v:125
+       :   -- module gen_pipe_dff declared here: ./utils/gen_dff.v:18
+       :   -- module gen_rst_0_dff declared here: ./utils/gen_dff.v:46
+       :   -- module gen_rst_1_dff declared here: ./utils/gen_dff.v:72
+       :   -- module gen_rst_def_dff declared here: ./utils/gen_dff.v:98
+       :   -- module gen_ticks_sync declared here: ./utils/gen_buf.v:18
+       :   -- module i2c_lm75 declared here: ./perips/i2c_lm75.v:14
+       :   -- module id declared here: ./core/id.v:21
+       :   -- module id_ex declared here: ./core/id_ex.v:20
+       :   -- module if_id declared here: ./core/if_id.v:20
+       :   -- module jtag_dm declared here: ./debug/jtag_dm.v:27
+       :   -- module jtag_driver declared here: ./debug/jtag_driver.v:23
+       :   -- module jtag_top declared here: ./debug/jtag_top.v:20
+       :   -- module pc_reg declared here: ./core/pc_reg.v:20
+       :   -- module pwm declared here: ./perips/pwm.v:16
+       :   -- module regs declared here: ./core/regs.v:20
+       :   -- module rib declared here: ./core/rib.v:16
+       :   -- module tinyriscv declared here: ./core/tinyriscv.v:20
+       :   -- module tinyriscv_soc_top declared here: ./soc/tinyriscv_soc_top.v:20
+       :   -- module uart_debug declared here: ./perips/uart_debug.v:32
+       :   -- module uart_shared declared here: ./perips/uart_shared.v:12
+./core/regs.v:74: warning: @* is sensitive to all 32 words in array 'regs'.
+./core/regs.v:86: warning: @* is sensitive to all 32 words in array 'regs'.
+./core/regs.v:95: warning: @* is sensitive to all 32 words in array 'regs'.
+./perips/pwm.v:75: warning: @* is sensitive to all 4 words in array 'period'.
+./perips/pwm.v:76: warning: @* is sensitive to all 4 words in array 'period'.
+./perips/pwm.v:77: warning: @* is sensitive to all 4 words in array 'period'.
+./perips/pwm.v:78: warning: @* is sensitive to all 4 words in array 'period'.
+./perips/pwm.v:79: warning: @* is sensitive to all 4 words in array 'high_time'.
+./perips/pwm.v:80: warning: @* is sensitive to all 4 words in array 'high_time'.
+./perips/pwm.v:81: warning: @* is sensitive to all 4 words in array 'high_time'.
+./perips/pwm.v:82: warning: @* is sensitive to all 4 words in array 'high_time'.
+PASS: tb_soc_load
+sim\tb_soc_load.v:105: $finish called at 3050000 (1ps)
+===== EXIT_CODE: 0 =====

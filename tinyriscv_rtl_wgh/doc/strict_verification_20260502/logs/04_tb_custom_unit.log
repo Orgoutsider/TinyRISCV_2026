@@ -1,0 +1,8 @@
+===== COMMAND =====
+iverilog -g2012 -Wall -I core -o sim_custom_unit.vvp sim\tb_custom_unit.v core\custom_unit.v && vvp sim_custom_unit.vvp
+===== OUTPUT =====
+core\custom_unit.v:12: warning: timescale for custom_unit inherited from another file.
+sim\tb_custom_unit.v:1: ...: The inherited timescale is here.
+PASS: tb_custom_unit
+sim\tb_custom_unit.v:110: $finish called at 435000 (1ps)
+===== EXIT_CODE: 0 =====

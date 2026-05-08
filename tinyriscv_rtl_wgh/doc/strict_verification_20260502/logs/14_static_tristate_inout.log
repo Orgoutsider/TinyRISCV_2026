@@ -1,0 +1,11 @@
+===== COMMAND =====
+rg -n \binout\b|1'bz|\btri\b|\btri1\b|\bwand\b|\bwor\b core debug perips soc utils fpga sim
+===== OUTPUT =====
+soc\tinyriscv_soc_top.v:46:    inout  wire       i2c_sda
+perips\i2c_lm75.v:30:    inout  wire       i2c_sda
+perips\i2c_lm75.v:67:    assign i2c_sda = sda_oe_low ? 1'b0 : 1'bz;
+sim\tb_chip_sel.v:17:    tri1 i2c_sda;
+sim\tb_i2c_lm75.v:16:    tri1 sda;
+sim\tb_soc_load.v:22:    tri1 i2c_sda;
+sim\tb_soc_mem_ops.v:22:    tri1 i2c_sda;
+===== EXIT_CODE: 0 =====
