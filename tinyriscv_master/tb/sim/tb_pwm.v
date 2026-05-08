@@ -64,6 +64,7 @@ module tb_pwm;
             $display("FAIL: pwm enable readback");
             $finish;
         end
+        #10;
         $display("PASS: tb_pwm");
         $finish;
     end
