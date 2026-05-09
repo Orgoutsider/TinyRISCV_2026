@@ -37,7 +37,9 @@ module chip_mem_bridge(
     input  wire[7:0]  chip_data_i
 );
 
+    // req_i=1
     localparam S_IDLE  = 4'd0;
+    // 发送请求帧7字节
     localparam S_TX0   = 4'd1;
     localparam S_TX1   = 4'd2;
     localparam S_TX2   = 4'd3;
@@ -45,6 +47,7 @@ module chip_mem_bridge(
     localparam S_TX4   = 4'd5;
     localparam S_TX5   = 4'd6;
     localparam S_TX6   = 4'd7;
+    // 接收响应帧5字节
     localparam S_RX0   = 4'd8;
     localparam S_RX1   = 4'd9;
     localparam S_RX2   = 4'd10;
@@ -85,19 +88,20 @@ module chip_mem_bridge(
                         state <= S_TX0;
                     end
                 end
-                S_TX0: begin chip_data_o <= 8'hA5; state <= S_TX1; end
-                S_TX1: begin chip_data_o <= {we_q, is_ram_q, 6'b0}; state <= S_TX2; end
-                S_TX2: begin chip_data_o <= addr_q[9:2]; state <= S_TX3; end
-                S_TX3: begin chip_data_o <= wdata_q[7:0]; state <= S_TX4; end
+                S_TX0: begin chip_data_o <= 8'hA5; state <= S_TX1; end // 起始同步字
+                S_TX1: begin chip_data_o <= {we_q, is_ram_q, 6'b0}; state <= S_TX2; end // 命令字（bit7=写标志，bit6=RAM标志）
+                S_TX2: begin chip_data_o <= addr_q[9:2]; state <= S_TX3; end // 地址（8位，RAM可寻址16字，ROM可寻址256字）
+                S_TX3: begin chip_data_o <= wdata_q[7:0]; state <= S_TX4; end // 写数据（4字节，低字节优先）
                 S_TX4: begin chip_data_o <= wdata_q[15:8]; state <= S_TX5; end
                 S_TX5: begin chip_data_o <= wdata_q[23:16]; state <= S_TX6; end
                 S_TX6: begin chip_data_o <= wdata_q[31:24]; state <= S_RX0; end
                 S_RX0: begin
                     chip_data_o <= 8'h00;
                     if (chip_data_i == 8'h5A) begin
-                        state <= S_RX1;
+                        state <= S_RX1; // 	起始同步字（验证响应有效）
                     end
                 end
+                // 读数据（4字节，低字节优先）
                 S_RX1: begin rdata_o[7:0]   <= chip_data_i; state <= S_RX2; end
                 S_RX2: begin rdata_o[15:8]  <= chip_data_i; state <= S_RX3; end
                 S_RX3: begin rdata_o[23:16] <= chip_data_i; state <= S_RX4; end
