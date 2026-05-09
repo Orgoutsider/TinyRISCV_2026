@@ -7,7 +7,7 @@
  *   +0x0c TXDATA
  *   +0x10 RXDATA
  */
-`include "defines.v" // 全局宏定义
+`include "../core/defines.v" // 全局宏定义
 
 module uart_shared( // UART共享模块
     input  wire        clk, // 时钟信号

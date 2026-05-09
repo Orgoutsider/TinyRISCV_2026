@@ -11,7 +11,7 @@
  *   0x0013_0000 : B3 high time
  *   0x0004_0000 : C[3:0] enable
  */
-`include "defines.v"
+`include "../core/defines.v"
 // 已经完成验证，有波形图
 
 module pwm(

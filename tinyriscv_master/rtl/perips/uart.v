@@ -14,6 +14,7 @@
  limitations under the License.                                          
  */
 
+// 该模块已弃用
 
 // 串口模块(默认: 115200, 8 N 1)
 module uart(

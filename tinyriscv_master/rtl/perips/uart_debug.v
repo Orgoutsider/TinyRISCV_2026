@@ -14,7 +14,7 @@
  * carries fw_file_size and is not written to memory. Remaining packets are
  * written sequentially from ROM_START_ADDR, 8 words per packet.
  */
-`include "defines.v"
+`include "../core/defines.v"
 
 `define UART_BAUD_115200        32'h0000_01B8
 `define UART_CTRL_REG           32'h3000_0000
