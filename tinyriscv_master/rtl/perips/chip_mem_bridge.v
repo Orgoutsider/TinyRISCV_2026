@@ -21,7 +21,9 @@
  */
 `include "../core/defines.v"
 
-module chip_mem_bridge(
+module chip_mem_bridge #(
+    parameter RX_SYNC_TIMEOUT = 16'd256
+)(
     input  wire       clk,
     input  wire       rst,
 
@@ -61,6 +63,7 @@ module chip_mem_bridge(
     reg we_q;
     reg is_ram_q;
     reg busy;
+    reg[15:0] rx_timeout_cnt;
 
     assign busy_o = busy;
 
@@ -74,11 +77,13 @@ module chip_mem_bridge(
             wdata_q <= `ZeroWord;
             we_q <= 1'b0;
             is_ram_q <= 1'b0;
+            rx_timeout_cnt <= 16'd0;
         end else begin
             case (state)
                 S_IDLE: begin
                     busy <= 1'b0;
                     chip_data_o <= 8'h00;
+                    rx_timeout_cnt <= 16'd0;
                     if (req_i) begin
                         busy <= 1'b1;
                         addr_q <= addr_i;
@@ -94,11 +99,18 @@ module chip_mem_bridge(
                 S_TX3: begin chip_data_o <= wdata_q[7:0]; state <= S_TX4; end // 写数据（4字节，低字节优先）
                 S_TX4: begin chip_data_o <= wdata_q[15:8]; state <= S_TX5; end
                 S_TX5: begin chip_data_o <= wdata_q[23:16]; state <= S_TX6; end
-                S_TX6: begin chip_data_o <= wdata_q[31:24]; state <= S_RX0; end
+                S_TX6: begin chip_data_o <= wdata_q[31:24]; rx_timeout_cnt <= 16'd0; state <= S_RX0; end
                 S_RX0: begin
                     chip_data_o <= 8'h00;
                     if (chip_data_i == 8'h5A) begin
+                        rx_timeout_cnt <= 16'd0;
                         state <= S_RX1; // 	起始同步字（验证响应有效）
+                    end else if (rx_timeout_cnt >= RX_SYNC_TIMEOUT) begin
+                        rdata_o <= `ZeroWord;
+                        rx_timeout_cnt <= 16'd0;
+                        state <= S_DONE;
+                    end else begin
+                        rx_timeout_cnt <= rx_timeout_cnt + 1'b1;
                     end
                 end
                 // 读数据（4字节，低字节优先）

@@ -12,6 +12,10 @@ module tb_mem_bridge;
     wire busy;
     wire[7:0] chip_to_fpga;
     wire[7:0] fpga_to_chip;
+    reg timeout_req;
+    wire[31:0] timeout_rdata;
+    wire timeout_busy;
+    wire[7:0] timeout_chip_to_fpga;
 
     chip_mem_bridge chip(
         .clk(clk),
@@ -25,6 +29,20 @@ module tb_mem_bridge;
         .busy_o(busy),
         .chip_data_o(chip_to_fpga),
         .chip_data_i(fpga_to_chip)
+    );
+
+    chip_mem_bridge #(.RX_SYNC_TIMEOUT(16'd4)) chip_timeout(
+        .clk(clk),
+        .rst(rst),
+        .req_i(timeout_req),
+        .we_i(1'b0),
+        .is_ram_i(1'b0),
+        .addr_i(32'h0),
+        .wdata_i(32'h0),
+        .rdata_o(timeout_rdata),
+        .busy_o(timeout_busy),
+        .chip_data_o(timeout_chip_to_fpga),
+        .chip_data_i(8'h00)
     );
 
     fpga_mem_bridge fpga(
@@ -64,6 +82,7 @@ module tb_mem_bridge;
         is_ram = 1'b0;
         addr = 32'h0;
         wdata = 32'h0;
+        timeout_req = 1'b0;
         repeat (3) @(negedge clk);
         rst = 1'b1;
 
@@ -77,6 +96,17 @@ module tb_mem_bridge;
         access(1'b0, 1'b0, 32'h0000_0000, 32'h0);
         if (rdata != 32'h00000013) begin
             $display("FAIL: rom bridge default %h", rdata);
+            $finish;
+        end
+
+        @(negedge clk);
+        timeout_req = 1'b1;
+        @(negedge clk);
+        timeout_req = 1'b0;
+        wait (timeout_busy == 1'b1);
+        repeat (32) @(negedge clk);
+        if (timeout_busy != 1'b0 || timeout_rdata != 32'h00000000) begin
+            $display("FAIL: bridge timeout busy=%b rdata=%h", timeout_busy, timeout_rdata);
             $finish;
         end
 
