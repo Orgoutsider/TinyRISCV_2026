@@ -68,6 +68,7 @@ module i2c_lm75 #(
     wire sda_in = i2c_sda;
     assign busy_o = busy;
 
+    // 时钟分频器 (div_cnt/tick)
     always @(posedge clk) begin
         if (rst == `RstEnable) begin
             div_cnt <= 16'd0;
@@ -82,9 +83,10 @@ module i2c_lm75 #(
         end
     end
 
+    // 捕获读温度请求，进入空闲时立即启动
     always @(posedge clk) begin
         if (rst == `RstEnable) begin
-            slave_addr <= 7'h48;
+            slave_addr <= 7'h48; // LM75 default address
             tx_reg <= 32'h0;
             start_pending <= 1'b0;
         end else begin
@@ -137,7 +139,7 @@ module i2c_lm75 #(
                 end
                 ST_START_A: begin
                     if (tick) begin
-                        i2c_scl <= 1'b1;
+                        i2c_scl <= 1'b1; // ensure SCL high before SDA falls
                         sda_oe_low <= 1'b1;              // SDA falls while SCL high
                         state <= ST_START_B;
                     end
