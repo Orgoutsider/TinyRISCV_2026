@@ -515,7 +515,7 @@ module tinyriscv_soc_tb;
     // If your simulator runs from another directory, pass +INST=path/to/inst.data.
     initial begin
         if (!$value$plusargs("INST=%s", inst_file)) begin
-            inst_file = "E://learn/thu/digital_work/tinyriscv_2026/inst/Baisc_Inst_Example/inst_add.data";
+            inst_file = "E://learn/thu/digital_work/tinyriscv_2026/inst/Baisc_Inst_Example/inst_beq.data";
         end
         $display("load inst file: %0s", inst_file);
         $readmemh(inst_file, fpga_mem_bridge_0.rom);
