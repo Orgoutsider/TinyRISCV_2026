@@ -91,11 +91,11 @@ module tb_soc_mem_ops;
 
         fpga.rom[0] = inst_lui(5'd2, 20'h10000);                  // x2 = RAM base
         fpga.rom[1] = inst_load(5'd5, 5'd2, `INST_LW, 12'd0);     // x5 = ram[0]
-        fpga.rom[2] = inst_load(5'd6, 5'd2, `INST_LB, 12'd2);     // sign byte 0xff
-        fpga.rom[3] = inst_load(5'd7, 5'd2, `INST_LBU, 12'd2);    // zero byte 0xff
-        fpga.rom[4] = inst_load(5'd8, 5'd2, `INST_LH, 12'd2);     // sign half 0x80ff
-        fpga.rom[5] = inst_load(5'd9, 5'd2, `INST_LHU, 12'd2);    // zero half 0x80ff
-        fpga.rom[6] = inst_store(5'd5, 5'd2, `INST_SW, 12'd4);    // ram[1] = x5
+        fpga.rom[2] = inst_load(5'd6, 5'd2, `INST_LB, 12'd2);     // sign byte 0xff 字节加载（8位，符号扩展）
+        fpga.rom[3] = inst_load(5'd7, 5'd2, `INST_LBU, 12'd2);    // zero byte 0xff 字节加载（8位，零扩展）
+        fpga.rom[4] = inst_load(5'd8, 5'd2, `INST_LH, 12'd2);     // sign half 0x80ff 半字加载（16位，符号扩展）
+        fpga.rom[5] = inst_load(5'd9, 5'd2, `INST_LHU, 12'd2);    // zero half 0x80ff 半字加载（16位，零扩展）
+        fpga.rom[6] = inst_store(5'd5, 5'd2, `INST_SW, 12'd4);    // ram[1] = x5  字存储（32位写入）
         fpga.rom[7] = 32'h00000013;
         fpga.rom[8] = 32'h00000013;
 
