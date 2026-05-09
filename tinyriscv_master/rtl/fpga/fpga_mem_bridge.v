@@ -35,7 +35,9 @@ module fpga_mem_bridge #(
 
     // TODO: Use block RAMs and ROMs for FPGA implementation if necessary.
     reg[31:0] rom[0:255];
-    reg[31:0] ram[0:15];
+    // reg[31:0] ram[0:15];
+    // TODO: To pass the testbench, temporarily increase RAM size, need to modify
+    reg [31:0] ram[0:2047];
 
     integer i;
     initial begin
