@@ -86,7 +86,7 @@ module tb_soc_load;
         jtag_TMS = 1'b1;
         jtag_TDI = 1'b1;
 
-        fpga.rom[0] = 32'h10000137; // lui x2,0x10000
+        fpga.rom[0] = 32'h10000137; // lui x2,0x10000 结果：x2 = 0x10000000
         fpga.rom[1] = 32'h00012283; // lw x5,0(x2)
         fpga.rom[2] = 32'h00000013; // nop
         fpga.rom[3] = 32'h00000013; // nop
