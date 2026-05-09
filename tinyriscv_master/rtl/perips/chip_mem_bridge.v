@@ -21,6 +21,8 @@
  */
 `include "../core/defines.v"
 
+// 已经完成验证，有波形图
+
 module chip_mem_bridge #(
     parameter RX_SYNC_TIMEOUT = 16'd256
 )(
