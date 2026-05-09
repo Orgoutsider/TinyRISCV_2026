@@ -5,11 +5,13 @@
  *   0x0000_0000 CTRL/STATUS: bit0 start read when written 1, bit1 busy, bit2 done
  *   0x0001_0000 SLAVE_ADDR : 7-bit LM75 address, default 0x48
  *   0x0002_0000 TX_DATA    : reserved/output data register
- *   0x0003_0000 RX_DATA    : {24'h0, temperature_msb}
+ *   0x0003_0000 RX_DATA    : {24'h0, temperature[7:0]}
  *
  * custom_temp_req_i starts the same LM75 read used by the rT instruction.
  */
-`include "defines.v"
+`include "../core/defines.v"
+
+// 已经完成验证，有波形图，目前只支持主读（主机读从机），不支持主写（主机写从机）。
 
 module i2c_lm75 #(
     parameter CLK_DIV = 16'd250       // 50MHz/(4*250) ~= 50kHz SCL in this simple engine
@@ -57,6 +59,9 @@ module i2c_lm75 #(
     reg[6:0] slave_addr;
     reg[31:0] tx_reg;
     reg[7:0] rx_reg;
+    reg[7:0] temp_msb;
+    reg[7:0] temp_lsb;
+    reg read_byte_sel;
     reg[7:0] shifter;
     reg[3:0] bit_cnt;
     reg sda_oe_low;
@@ -119,6 +124,9 @@ module i2c_lm75 #(
             custom_temp_valid_o <= 1'b0;
             custom_temp_data_o <= 8'h00;
             rx_reg <= 8'h00;
+            temp_msb <= 8'h00;
+            temp_lsb <= 8'h00;
+            read_byte_sel <= 1'b0; // 1: LSB, 0: MSB
             shifter <= 8'h00;
             bit_cnt <= 4'd0;
         end else begin
@@ -134,6 +142,10 @@ module i2c_lm75 #(
                         done <= 1'b0;
                         shifter <= {slave_addr, 1'b1};  // LM75 read
                         bit_cnt <= 4'd7;
+                        rx_reg <= 8'h00;
+                        temp_msb <= 8'h00;
+                        temp_lsb <= 8'h00;
+                        read_byte_sel <= 1'b0;
                         state <= ST_START_A;
                     end
                 end
@@ -195,6 +207,11 @@ module i2c_lm75 #(
                         i2c_scl <= 1'b1;
                         rx_reg[bit_cnt] <= sda_in;
                         if (bit_cnt == 4'd0) begin
+                            if (read_byte_sel) begin
+                                temp_lsb <= {rx_reg[7:1], sda_in};
+                            end else begin
+                                temp_msb <= {rx_reg[7:1], sda_in};
+                            end
                             state <= ST_NACK_LOW;
                         end else begin
                             bit_cnt <= bit_cnt - 1'b1;
@@ -205,14 +222,21 @@ module i2c_lm75 #(
                 ST_NACK_LOW: begin
                     if (tick) begin
                         i2c_scl <= 1'b0;
-                        sda_oe_low <= 1'b0;              // NACK = release SDA
+                        sda_oe_low <= ~read_byte_sel;    // ACK first byte, NACK second byte
                         state <= ST_NACK_HIGH;
                     end
                 end
                 ST_NACK_HIGH: begin
                     if (tick) begin
                         i2c_scl <= 1'b1;
-                        state <= ST_STOP_A;
+                        if (read_byte_sel) begin
+                            state <= ST_STOP_A;
+                        end else begin
+                            read_byte_sel <= 1'b1;
+                            bit_cnt <= 4'd7;
+                            rx_reg <= 8'h00;
+                            state <= ST_READ_LOW;
+                        end
                     end
                 end
                 ST_STOP_A: begin
@@ -231,7 +255,7 @@ module i2c_lm75 #(
                 ST_DONE: begin
                     busy <= 1'b0;
                     done <= 1'b1;
-                    custom_temp_data_o <= rx_reg;
+                    custom_temp_data_o <= {temp_msb[6:0], temp_lsb[7]};
                     custom_temp_valid_o <= 1'b1;
                     state <= ST_IDLE;
                 end
@@ -240,13 +264,14 @@ module i2c_lm75 #(
         end
     end
 
+    // 寄存器解码，从32位地址中提取[23:16]8位来区分4个寄存器。
     always @(*) begin
         data_o = `ZeroWord;
         case (addr_i[23:16])
             REG_CTRL: data_o = {29'h0, done, busy, 1'b0};
             REG_ADDR: data_o = {25'h0, slave_addr};
             REG_TX:   data_o = tx_reg;
-            REG_RX:   data_o = {24'h0, rx_reg};
+            REG_RX:   data_o = {24'h0, {temp_msb[6:0], temp_lsb[7]}};
             default:  data_o = `ZeroWord;
         endcase
     end
