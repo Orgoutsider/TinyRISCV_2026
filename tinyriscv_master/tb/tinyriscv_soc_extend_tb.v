@@ -4,6 +4,7 @@
 
 // select one option only
 `define TEST_PROG  1
+`define TEST_EXT_IF 1
 //`define TEST_JTAG  1
 
 
@@ -32,6 +33,11 @@ module tinyriscv_soc_tb;
 
     reg[1023:0] inst_file;
 
+    localparam integer UART_BAUD_PERIOD_NS = 8680;
+    reg[7:0] uart_recv_data;
+    reg uart_recv_done;
+    integer uart_i;
+
     assign chip_sel_i = 1'b1;
     assign uart_rx_pin = 1'b1;  // UART idle level
 
@@ -53,6 +59,31 @@ module tinyriscv_soc_tb;
     wire[31:0] dmstatus = tinyriscv_soc_top_0.u_jtag_top.u_jtag_dm.dmstatus;
 `endif
 
+    task uart_recv_byte;
+        output [7:0] data;
+        integer i;
+        begin
+            data = 8'h00;
+
+            // wait start bit
+            wait(uart_tx_pin == 1'b0);
+
+            // sample at the center of data[0]
+            #(UART_BAUD_PERIOD_NS + UART_BAUD_PERIOD_NS / 2);
+
+            for (i = 0; i < 8; i = i + 1) begin
+                data[i] = uart_tx_pin;
+                #(UART_BAUD_PERIOD_NS);
+            end
+
+            if (uart_tx_pin !== 1'b1) begin
+                $display("UART STOP BIT ERROR: stop bit = %b", uart_tx_pin);
+            end
+
+            #(UART_BAUD_PERIOD_NS);
+        end
+    endtask
+
     initial begin
         clk = 1'b0;
         rst = `RstEnable;
@@ -66,9 +97,10 @@ module tinyriscv_soc_tb;
         $display("test running...");
         #40
         rst = `RstDisable;
-        #200
+        #200;
 
 `ifdef TEST_PROG
+`ifndef TEST_EXT_IF
         wait(x26 == 32'b1)   // wait sim end, when x26 == 1
         #1000
         if (x27 == 32'b1) begin
@@ -95,6 +127,7 @@ module tinyriscv_soc_tb;
             for (r = 0; r < 32; r = r + 1)
                 $display("x%2d = 0x%x", r, tinyriscv_soc_top_0.u_tinyriscv.u_regs.regs[r]);
         end
+`endif
 `endif
 
 `ifdef TEST_JTAG
@@ -501,13 +534,49 @@ module tinyriscv_soc_tb;
         end
 `endif
 
+`ifndef TEST_EXT_IF
+        $finish;
+`endif
+    end
+
+`ifdef TEST_EXT_IF
+    initial begin
+        uart_recv_done = 1'b0;
+        uart_recv_data = 8'h00;
+
+        wait(rst == `RstDisable);
+        repeat (20) @(posedge clk);
+
+        uart_recv_byte(uart_recv_data);
+        uart_recv_done = 1'b1;
+
+        if (uart_recv_data == 8'h8A) begin
+            $display("~~~~~~~~~~~~~~~~~~~ IF TEST_PASS ~~~~~~~~~~~~~~~~~~~");
+            $display("UART output = 0x%02x, expected = 0x8A", uart_recv_data);
+            $display("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+        end else begin
+            $display("~~~~~~~~~~~~~~~~~~~ IF TEST_FAIL ~~~~~~~~~~~~~~~~~~~");
+            $display("UART output = 0x%02x, expected = 0x8A", uart_recv_data);
+            $display("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+        end
+
         $finish;
     end
+`endif
 
     // sim timeout: instruction fetch now goes through chip_mem_bridge + fpga_mem_bridge.
     initial begin
-        #5000000
+`ifdef TEST_EXT_IF
+        #10000000;
+        if (uart_recv_done == 1'b0) begin
+            $display("~~~~~~~~~~~~~~~~~~~ IF TEST_TIMEOUT ~~~~~~~~~~~~~~~~~~~");
+            $display("No UART byte received from uart_tx_pin.");
+            $display("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+        end
+`else
+        #2500000000;
         $display("Time Out.");
+`endif
         $finish;
     end
 
@@ -515,7 +584,7 @@ module tinyriscv_soc_tb;
     // If your simulator runs from another directory, pass +INST=path/to/inst.data.
     initial begin
         if (!$value$plusargs("INST=%s", inst_file)) begin
-            inst_file = "E://learn/thu/digital_work/tinyriscv_2026/inst/Baisc_Inst_Example/inst_xori.data";
+            inst_file = "E://learn/thu/digital_work/tinyriscv_2026/inst/Extend_Inst_Example/IF/IF_inst.data";
         end
         $display("load inst file: %0s", inst_file);
         $readmemh(inst_file, fpga_mem_bridge_0.rom);
