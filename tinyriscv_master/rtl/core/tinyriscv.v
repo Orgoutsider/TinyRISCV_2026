@@ -53,7 +53,9 @@ module tinyriscv( // 模块声明
     output wire custom_i2c_temp_req_o,         // 自定义I2C温度请求
     input  wire custom_i2c_temp_valid_i,       // 自定义I2C温度有效
     input  wire[7:0] custom_i2c_temp_data_i,   // 自定义I2C温度数据
-    input  wire custom_i2c_busy_i              // 自定义I2C忙标志
+    input  wire custom_i2c_busy_i,             // 自定义I2C忙标志
+
+    output wire fetch_kill_o // jump flush 信号，送到 RIB 以停掉指令取址
 
     ); // 端口列表结束
 
@@ -518,5 +520,7 @@ module tinyriscv( // 模块声明
         .int_addr_o(clint_int_addr_o), // 中断入口
         .int_assert_o(clint_int_assert_o) // 中断有效
     );
+
+    assign fetch_kill_o = ctrl_jump_flag_o || ex_jump_flag_o; // 取指杀死信号，跳转时停掉取指
 
 endmodule // 模块结束

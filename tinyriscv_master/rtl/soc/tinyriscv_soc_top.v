@@ -107,6 +107,9 @@ module tinyriscv_soc_top(
     wire              s0_is_ram_o;
     wire              s0_busy_i;
 
+    // fetch_kill 信号由 CPU core 输出，送到 RIB 以停掉指令取址。它在发生跳转时被置位，以防止跳转指令之后的指令被错误地取址和执行。
+    wire fetch_kill;
+
     // slave 1: UART
     wire[`MemAddrBus] s1_addr_o;
     wire[`MemBus]     s1_data_o;
@@ -229,7 +232,9 @@ module tinyriscv_soc_top(
         .custom_i2c_temp_req_o(custom_i2c_req),
         .custom_i2c_temp_valid_i(custom_i2c_valid),
         .custom_i2c_temp_data_i(custom_i2c_data),
-        .custom_i2c_busy_i(custom_i2c_busy)
+        .custom_i2c_busy_i(custom_i2c_busy),
+
+        .fetch_kill_o(fetch_kill) // jump flush 信号，送到 RIB 以停掉指令取址
     );
 
     // // rom模块例化
@@ -313,7 +318,7 @@ module tinyriscv_soc_top(
         .m1_addr_i(m1_addr_i),
         .m1_data_i(`ZeroWord),
         .m1_data_o(m1_data_o),
-        .m1_req_i(chip_sel_i ? `RIB_REQ : `RIB_NREQ),
+        .m1_req_i((chip_sel_i && !fetch_kill) ? `RIB_REQ : `RIB_NREQ), // m1_req_i在 jump flush 时停掉
         .m1_we_i(`WriteDisable),
 
         // master 2 interface
