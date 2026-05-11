@@ -4,7 +4,7 @@
 
 // select one option only
 `define TEST_PROG  1
-// `define TEST_JTAG  1
+//`define TEST_JTAG  1
 
 
 // testbench module
