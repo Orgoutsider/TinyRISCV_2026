@@ -4,8 +4,9 @@
 
 // select one option only
 // `define TEST_PROG  1
-// `define TEST_EXT_IF 1
+`define TEST_EXT_IF 1
 `define TEST_EXT_sID 1
+`define TEST_EXT_Temp 1
 //`define TEST_JTAG  1
 
 
@@ -45,6 +46,17 @@ module tinyriscv_soc_tb;
     integer sid_i;
     integer sid_pass;
     integer sid_recv_count;
+`endif
+
+`ifdef TEST_EXT_Temp
+    reg[7:0] temp_recv_data;
+    reg temp_recv_done;
+    reg lm75_sda_drive_low;
+    integer lm75_transactions;
+    reg[7:0] lm75_addr_rw;
+    reg[7:0] lm75_pointer;
+    reg lm75_master_ack;
+    assign i2c_sda = lm75_sda_drive_low ? 1'b0 : 1'bz;
 `endif
 
     assign chip_sel_i = 1'b1;
@@ -545,12 +557,15 @@ module tinyriscv_soc_tb;
 
 `ifndef TEST_EXT_IF
 `ifndef TEST_EXT_sID
+`ifndef TEST_EXT_Temp
         $finish;
+`endif
 `endif
 `endif
     end
 
 `ifdef TEST_EXT_IF
+`ifndef TEST_EXT_Temp
 `ifndef TEST_EXT_sID
     initial begin
         uart_recv_done = 1'b0;
@@ -576,8 +591,10 @@ module tinyriscv_soc_tb;
     end
 `endif
 `endif
+`endif
 
 `ifdef TEST_EXT_sID
+`ifndef TEST_EXT_Temp
     initial begin
         sid_pass = 1;
         sid_recv_count = 0;
@@ -624,10 +641,143 @@ module tinyriscv_soc_tb;
         $finish;
     end
 `endif
+`endif
+
+`ifdef TEST_EXT_Temp
+    task lm75_wait_start;
+        begin
+            while (!(i2c_scl === 1'b1 && i2c_sda === 1'b0)) begin
+                @(negedge i2c_sda);
+            end
+        end
+    endtask
+
+    task lm75_recv_byte;
+        output [7:0] data;
+        integer bit_i;
+        begin
+            data = 8'h00;
+            for (bit_i = 7; bit_i >= 0; bit_i = bit_i - 1) begin
+                @(posedge i2c_scl);
+                data[bit_i] = i2c_sda;
+            end
+        end
+    endtask
+
+    task lm75_send_ack;
+        begin
+            @(negedge i2c_scl);
+            lm75_sda_drive_low = 1'b1;
+            @(posedge i2c_scl);
+            @(negedge i2c_scl);
+            lm75_sda_drive_low = 1'b0;
+        end
+    endtask
+
+    // task lm75_send_byte;
+    //     input [7:0] data;
+    //     output master_ack;
+    //     integer bit_i;
+    //     begin
+    //         for (bit_i = 7; bit_i >= 0; bit_i = bit_i - 1) begin
+    //             @(negedge i2c_scl);
+    //             lm75_sda_drive_low = (data[bit_i] == 1'b0) ? 1'b1 : 1'b0;
+    //             @(posedge i2c_scl);
+    //         end
+
+    //         @(negedge i2c_scl);
+    //         lm75_sda_drive_low = 1'b0;
+    //         @(posedge i2c_scl);
+    //         master_ack = (i2c_sda == 1'b0);
+    //     end
+    // endtask
+
+    task lm75_send_byte;
+        input [7:0] data;
+        output master_ack;
+        integer bit_i;
+        begin
+            for (bit_i = 7; bit_i >= 0; bit_i = bit_i - 1) begin
+                // 在 SCL 低电平期间准备 SDA
+                lm75_sda_drive_low = (data[bit_i] == 1'b0) ? 1'b1 : 1'b0;
+
+                // DUT 在 SCL 高电平采样
+                @(posedge i2c_scl);
+
+                // 等待本 bit 结束，回到低电平
+                @(negedge i2c_scl);
+            end
+
+            // 第 9 个 clock，释放 SDA，让 master 发送 ACK/NACK
+            lm75_sda_drive_low = 1'b0;
+            @(posedge i2c_scl);
+            master_ack = (i2c_sda == 1'b0);
+            @(negedge i2c_scl);
+        end
+    endtask
+
+    initial begin
+        lm75_sda_drive_low = 1'b0;
+        lm75_transactions = 0;
+        lm75_addr_rw = 8'h00;
+        lm75_pointer = 8'h00;
+        lm75_master_ack = 1'b0;
+
+        wait(rst == `RstDisable);
+
+        forever begin
+            lm75_wait_start();
+            lm75_recv_byte(lm75_addr_rw);
+
+            if (lm75_addr_rw[7:1] == 7'h48) begin
+                lm75_send_ack();
+
+                if (lm75_addr_rw[0] == 1'b0) begin
+                    lm75_recv_byte(lm75_pointer);
+                    lm75_send_ack();
+                end else begin
+                    lm75_send_byte(8'h00, lm75_master_ack);
+                    lm75_send_byte(8'h80, lm75_master_ack);
+                    lm75_transactions = lm75_transactions + 1;
+                    lm75_sda_drive_low = 1'b0;
+                end
+            end else begin
+                lm75_sda_drive_low = 1'b0;
+            end
+        end
+    end
+
+    initial begin
+        temp_recv_done = 1'b0;
+        temp_recv_data = 8'h00;
+
+        wait(rst == `RstDisable);
+        repeat (20) @(posedge clk);
+
+        uart_recv_byte(temp_recv_data);
+        temp_recv_done = 1'b1;
+
+        if (temp_recv_data == 8'h01) begin
+            $display("~~~~~~~~~~~~~~~~~~~ Temp TEST_PASS ~~~~~~~~~~~~~~~~~~~");
+        end else begin
+            $display("~~~~~~~~~~~~~~~~~~~ Temp TEST_FAIL ~~~~~~~~~~~~~~~~~~~");
+            $display("UART output = 0x%02x, expected = 0x01", temp_recv_data);
+        end
+
+        $finish;
+    end
+`endif
 
     // sim timeout: instruction fetch now goes through chip_mem_bridge + fpga_mem_bridge.
     initial begin
-`ifdef TEST_EXT_sID
+`ifdef TEST_EXT_Temp
+        #100000000;
+        if (temp_recv_done == 1'b0) begin
+            $display("~~~~~~~~~~~~~~~~~~~ Temp TEST_TIMEOUT ~~~~~~~~~~~~~~~~~~~");
+            $display("No UART byte received from uart_tx_pin. LM75 transactions = %0d", lm75_transactions);
+            $display("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+        end
+`elsif TEST_EXT_sID
         #100000000;
         if (sid_recv_count < 10) begin
             $display("~~~~~~~~~~~~~~~~~~~ sID TEST_TIMEOUT ~~~~~~~~~~~~~~~~~~~");
@@ -652,7 +802,9 @@ module tinyriscv_soc_tb;
     // If your simulator runs from another directory, pass +INST=path/to/inst.data.
     initial begin
         if (!$value$plusargs("INST=%s", inst_file)) begin
-`ifdef TEST_EXT_sID
+`ifdef TEST_EXT_Temp
+            inst_file = "E://learn/thu/digital_work/tinyriscv_2026/inst/Extend_Inst_Example/Temp/Temp.data";
+`elsif TEST_EXT_sID
             inst_file = "E://learn/thu/digital_work/tinyriscv_2026/inst/Extend_Inst_Example/sID/sID_inst.data";
 `else
             inst_file = "E://learn/thu/digital_work/tinyriscv_2026/inst/Extend_Inst_Example/IF/IF_inst.data";

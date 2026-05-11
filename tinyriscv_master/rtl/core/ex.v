@@ -205,7 +205,8 @@ module ex( // 执行模块声明
     // 响应中断时不向总线请求访问内存
     assign mem_req_o = (int_assert_i == `INT_ASSERT)? `RIB_NREQ: mem_req; // 内存请求选择
 
-    assign hold_flag_o = hold_flag || div_hold_flag || custom_hold_req; // 暂停条件
+    // TODO: hold only a cycle
+    assign hold_flag_o = hold_flag || div_hold_flag || custom_hold_req || custom_busy_i; // 暂停条件
     assign jump_flag_o = jump_flag || div_jump_flag || ((int_assert_i == `INT_ASSERT)? `JumpEnable: `JumpDisable); // 跳转标志选择
     assign jump_addr_o = (int_assert_i == `INT_ASSERT)? int_addr_i: (div_jump_flag ? div_jump_addr : jump_addr); // 跳转地址选择
 
