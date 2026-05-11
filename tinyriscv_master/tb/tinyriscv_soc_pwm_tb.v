@@ -2,11 +2,6 @@
 
 `include "defines.v"
 
-// select one option only
-`define TEST_PROG  1
-//`define TEST_JTAG  1
-
-
 // testbench module
 module tinyriscv_soc_tb;
 
@@ -32,26 +27,146 @@ module tinyriscv_soc_tb;
 
     reg[1023:0] inst_file;
 
+    integer pwm_pass;
+    integer wait_cycles;
+    integer ch0_pass;
+    integer ch1_pass;
+    integer ch2_pass;
+    integer ch3_pass;
+
     assign chip_sel_i = 1'b1;
     assign uart_rx_pin = 1'b1;  // UART idle level
 
     always #10 clk = ~clk;     // 50MHz
 
-    wire[`RegBus] x3 = tinyriscv_soc_top_0.u_tinyriscv.u_regs.regs[3];
-    wire[`RegBus] x26 = tinyriscv_soc_top_0.u_tinyriscv.u_regs.regs[26];
-    wire[`RegBus] x27 = tinyriscv_soc_top_0.u_tinyriscv.u_regs.regs[27];
+    function pwm_sample;
+        input integer ch;
+        begin
+            case (ch)
+                0: pwm_sample = pwm_o[0];
+                1: pwm_sample = pwm_o[1];
+                2: pwm_sample = pwm_o[2];
+                3: pwm_sample = pwm_o[3];
+                default: pwm_sample = 1'b0;
+            endcase
+        end
+    endfunction
 
-    integer r;
+    task print_pwm_regs;
+        begin
+            $display("PWM regs:");
+            $display("  period[0]    = %0d", tinyriscv_soc_top_0.u_pwm.period[0]);
+            $display("  high_time[0] = %0d", tinyriscv_soc_top_0.u_pwm.high_time[0]);
+            $display("  period[1]    = %0d", tinyriscv_soc_top_0.u_pwm.period[1]);
+            $display("  high_time[1] = %0d", tinyriscv_soc_top_0.u_pwm.high_time[1]);
+            $display("  period[2]    = %0d", tinyriscv_soc_top_0.u_pwm.period[2]);
+            $display("  high_time[2] = %0d", tinyriscv_soc_top_0.u_pwm.high_time[2]);
+            $display("  period[3]    = %0d", tinyriscv_soc_top_0.u_pwm.period[3]);
+            $display("  high_time[3] = %0d", tinyriscv_soc_top_0.u_pwm.high_time[3]);
+            $display("  enable       = 0x%0h", tinyriscv_soc_top_0.u_pwm.enable);
+        end
+    endtask
 
-`ifdef TEST_JTAG
-    integer i;
-    reg[39:0] shift_reg;
-    reg in;
-    wire[39:0] req_data = tinyriscv_soc_top_0.u_jtag_top.u_jtag_driver.dtm_req_data;
-    wire[4:0] ir_reg = tinyriscv_soc_top_0.u_jtag_top.u_jtag_driver.ir_reg;
-    wire dtm_req_valid = tinyriscv_soc_top_0.u_jtag_top.u_jtag_driver.dtm_req_valid;
-    wire[31:0] dmstatus = tinyriscv_soc_top_0.u_jtag_top.u_jtag_dm.dmstatus;
-`endif
+    task check_pwm_reg;
+        input integer ch;
+        input integer expected_period;
+        input integer expected_high;
+        output integer pass;
+        begin
+            pass = 1;
+            case (ch)
+                0: begin
+                    if (tinyriscv_soc_top_0.u_pwm.period[0] !== expected_period) pass = 0;
+                    if (tinyriscv_soc_top_0.u_pwm.high_time[0] !== expected_high) pass = 0;
+                end
+                1: begin
+                    if (tinyriscv_soc_top_0.u_pwm.period[1] !== expected_period) pass = 0;
+                    if (tinyriscv_soc_top_0.u_pwm.high_time[1] !== expected_high) pass = 0;
+                end
+                2: begin
+                    if (tinyriscv_soc_top_0.u_pwm.period[2] !== expected_period) pass = 0;
+                    if (tinyriscv_soc_top_0.u_pwm.high_time[2] !== expected_high) pass = 0;
+                end
+                3: begin
+                    if (tinyriscv_soc_top_0.u_pwm.period[3] !== expected_period) pass = 0;
+                    if (tinyriscv_soc_top_0.u_pwm.high_time[3] !== expected_high) pass = 0;
+                end
+                default: pass = 0;
+            endcase
+
+            if (pass == 0) begin
+                $display("PWM channel %0d register mismatch: expected period=%0d high=%0d",
+                         ch, expected_period, expected_high);
+            end
+        end
+    endtask
+
+    task check_pwm_channel;
+        input integer ch;
+        input integer expected_period;
+        input integer expected_high;
+        output integer pass;
+        reg prev;
+        reg cur;
+        integer guard;
+        integer found_rise;
+        integer period_count;
+        integer high_count;
+        begin
+            pass = 0;
+            prev = pwm_sample(ch);
+            found_rise = 0;
+
+            for (guard = 0; guard < 1000 && found_rise == 0; guard = guard + 1) begin
+                @(posedge clk);
+                #1;
+                cur = pwm_sample(ch);
+                if (prev == 1'b0 && cur == 1'b1) begin
+                    found_rise = 1;
+                end
+                prev = cur;
+            end
+
+            if (found_rise == 0) begin
+                $display("PWM channel %0d failed: no rising edge observed", ch);
+                $display("  expected period=%0d high=%0d, measured period=timeout high=timeout",
+                         expected_period, expected_high);
+            end else begin
+                period_count = 0;
+                high_count = 0;
+                found_rise = 0;
+                prev = 1'b1;
+
+                for (guard = 0; guard < 1000 && found_rise == 0; guard = guard + 1) begin
+                    @(posedge clk);
+                    #1;
+                    cur = pwm_sample(ch);
+                    period_count = period_count + 1;
+                    if (cur == 1'b1) begin
+                        high_count = high_count + 1;
+                    end
+                    if (prev == 1'b0 && cur == 1'b1) begin
+                        found_rise = 1;
+                    end
+                    prev = cur;
+                end
+
+                if (found_rise == 0) begin
+                    $display("PWM channel %0d failed: second rising edge timeout", ch);
+                    $display("  expected period=%0d high=%0d, measured period=%0d high=%0d",
+                             expected_period, expected_high, period_count, high_count);
+                end else if (((period_count >= expected_period - 1) && (period_count <= expected_period + 1)) &&
+                             ((high_count >= expected_high - 1) && (high_count <= expected_high + 1))) begin
+                    pass = 1;
+                    $display("PWM channel %0d ok: expected period=%0d high=%0d, measured period=%0d high=%0d",
+                             ch, expected_period, expected_high, period_count, high_count);
+                end else begin
+                    $display("PWM channel %0d failed: expected period=%0d high=%0d, measured period=%0d high=%0d",
+                             ch, expected_period, expected_high, period_count, high_count);
+                end
+            end
+        end
+    endtask
 
     initial begin
         clk = 1'b0;
@@ -59,463 +174,83 @@ module tinyriscv_soc_tb;
         jtag_TCK = 1'b0;
         jtag_TMS = 1'b1;
         jtag_TDI = 1'b0;
-`ifdef TEST_JTAG
-        jtag_TCK = 1'b1;
-        jtag_TDI = 1'b1;
-`endif
-        $display("test running...");
+
+        $display("PWM test running...");
         #40
         rst = `RstDisable;
-        #200
+    end
 
-`ifdef TEST_PROG
-        wait(x26 == 32'b1)   // wait sim end, when x26 == 1
-        #1000
-        if (x27 == 32'b1) begin
-            $display("~~~~~~~~~~~~~~~~~~~ TEST_PASS ~~~~~~~~~~~~~~~~~~~");
-            $display("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-            $display("~~~~~~~~~ #####     ##     ####    #### ~~~~~~~~~");
-            $display("~~~~~~~~~ #    #   #  #   #       #     ~~~~~~~~~");
-            $display("~~~~~~~~~ #    #  #    #   ####    #### ~~~~~~~~~");
-            $display("~~~~~~~~~ #####   ######       #       #~~~~~~~~~");
-            $display("~~~~~~~~~ #       #    #  #    #  #    #~~~~~~~~~");
-            $display("~~~~~~~~~ #       #    #   ####    #### ~~~~~~~~~");
-            $display("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+    initial begin
+        pwm_pass = 1;
+        ch0_pass = 0;
+        ch1_pass = 0;
+        ch2_pass = 0;
+        ch3_pass = 0;
+
+        wait(rst == `RstDisable);
+
+        wait_cycles = 0;
+        while (tinyriscv_soc_top_0.u_pwm.enable !== 4'hF && wait_cycles < 50000) begin
+            @(posedge clk);
+            wait_cycles = wait_cycles + 1;
+        end
+
+        if (tinyriscv_soc_top_0.u_pwm.enable !== 4'hF) begin
+            $display("~~~~~~~~~~~~~~~~~~~ PWM TEST_FAIL ~~~~~~~~~~~~~~~~~~~");
+            $display("Timeout waiting for PWM enable == 4'hF.");
+            print_pwm_regs();
+            $finish;
+        end
+
+        repeat (20) @(posedge clk);
+
+        check_pwm_reg(0, 100, 50, ch0_pass);
+        if (ch0_pass == 0) pwm_pass = 0;
+        check_pwm_reg(1, 80, 40, ch1_pass);
+        if (ch1_pass == 0) pwm_pass = 0;
+        check_pwm_reg(2, 40, 20, ch2_pass);
+        if (ch2_pass == 0) pwm_pass = 0;
+        check_pwm_reg(3, 20, 10, ch3_pass);
+        if (ch3_pass == 0) pwm_pass = 0;
+
+        if (tinyriscv_soc_top_0.u_pwm.enable !== 4'hF) begin
+            pwm_pass = 0;
+            $display("PWM enable mismatch: expected 0xF, actual 0x%0h",
+                     tinyriscv_soc_top_0.u_pwm.enable);
+        end
+
+        check_pwm_channel(0, 100, 50, ch0_pass);
+        if (ch0_pass == 0) pwm_pass = 0;
+        check_pwm_channel(1, 80, 40, ch1_pass);
+        if (ch1_pass == 0) pwm_pass = 0;
+        check_pwm_channel(2, 40, 20, ch2_pass);
+        if (ch2_pass == 0) pwm_pass = 0;
+        check_pwm_channel(3, 20, 10, ch3_pass);
+        if (ch3_pass == 0) pwm_pass = 0;
+
+        if (pwm_pass == 1) begin
+            $display("~~~~~~~~~~~~~~~~~~~ PWM TEST_PASS ~~~~~~~~~~~~~~~~~~~");
         end else begin
-            $display("~~~~~~~~~~~~~~~~~~~ TEST_FAIL ~~~~~~~~~~~~~~~~~~~~");
-            $display("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-            $display("~~~~~~~~~~######    ##       #    #     ~~~~~~~~~~");
-            $display("~~~~~~~~~~#        #  #      #    #     ~~~~~~~~~~");
-            $display("~~~~~~~~~~#####   #    #     #    #     ~~~~~~~~~~");
-            $display("~~~~~~~~~~#       ######     #    #     ~~~~~~~~~~");
-            $display("~~~~~~~~~~#       #    #     #    #     ~~~~~~~~~~");
-            $display("~~~~~~~~~~#       #    #     #    ######~~~~~~~~~~");
-            $display("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
-            $display("fail testnum = %2d", x3);
-            for (r = 0; r < 32; r = r + 1)
-                $display("x%2d = 0x%x", r, tinyriscv_soc_top_0.u_tinyriscv.u_regs.regs[r]);
+            $display("~~~~~~~~~~~~~~~~~~~ PWM TEST_FAIL ~~~~~~~~~~~~~~~~~~~");
+            print_pwm_regs();
         end
-`endif
-
-`ifdef TEST_JTAG
-        // reset
-        for (i = 0; i < 8; i = i + 1) begin
-            jtag_TMS = 1'b1;
-            jtag_TCK = 1'b0;
-            #100
-            jtag_TCK = 1'b1;
-            #100
-            jtag_TCK = 1'b0;
-        end
-
-        // IR
-        shift_reg = 40'b10001;
-
-        // IDLE
-        jtag_TMS = 1'b0;
-        jtag_TCK = 1'b0;
-        #100
-        jtag_TCK = 1'b1;
-        #100
-        jtag_TCK = 1'b0;
-
-        // SELECT-DR
-        jtag_TMS = 1'b1;
-        jtag_TCK = 1'b0;
-        #100
-        jtag_TCK = 1'b1;
-        #100
-        jtag_TCK = 1'b0;
-
-        // SELECT-IR
-        jtag_TMS = 1'b1;
-        jtag_TCK = 1'b0;
-        #100
-        jtag_TCK = 1'b1;
-        #100
-        jtag_TCK = 1'b0;
-
-        // CAPTURE-IR
-        jtag_TMS = 1'b0;
-        jtag_TCK = 1'b0;
-        #100
-        jtag_TCK = 1'b1;
-        #100
-        jtag_TCK = 1'b0;
-
-        // SHIFT-IR
-        jtag_TMS = 1'b0;
-        jtag_TCK = 1'b0;
-        #100
-        jtag_TCK = 1'b1;
-        #100
-        jtag_TCK = 1'b0;
-
-        // SHIFT-IR & EXIT1-IR
-        for (i = 5; i > 0; i = i - 1) begin
-            if (shift_reg[0] == 1'b1)
-                jtag_TDI = 1'b1;
-            else
-                jtag_TDI = 1'b0;
-
-            if (i == 1)
-                jtag_TMS = 1'b1;
-
-            jtag_TCK = 1'b0;
-            #100
-            in = jtag_TDO;
-            jtag_TCK = 1'b1;
-            #100
-            jtag_TCK = 1'b0;
-
-            shift_reg = {{(35){1'b0}}, in, shift_reg[4:1]};
-        end
-
-        // PAUSE-IR
-        jtag_TMS = 1'b0;
-        jtag_TCK = 1'b0;
-        #100
-        jtag_TCK = 1'b1;
-        #100
-        jtag_TCK = 1'b0;
-
-        // EXIT2-IR
-        jtag_TMS = 1'b1;
-        jtag_TCK = 1'b0;
-        #100
-        jtag_TCK = 1'b1;
-        #100
-        jtag_TCK = 1'b0;
-
-        // UPDATE-IR
-        jtag_TMS = 1'b1;
-        jtag_TCK = 1'b0;
-        #100
-        jtag_TCK = 1'b1;
-        #100
-        jtag_TCK = 1'b0;
-
-        // IDLE
-        jtag_TMS = 1'b0;
-        jtag_TCK = 1'b0;
-        #100
-        jtag_TCK = 1'b1;
-        #100
-        jtag_TCK = 1'b0;
-
-        // IDLE
-        jtag_TMS = 1'b0;
-        jtag_TCK = 1'b0;
-        #100
-        jtag_TCK = 1'b1;
-        #100
-        jtag_TCK = 1'b0;
-
-        // IDLE
-        jtag_TMS = 1'b0;
-        jtag_TCK = 1'b0;
-        #100
-        jtag_TCK = 1'b1;
-        #100
-        jtag_TCK = 1'b0;
-
-        // IDLE
-        jtag_TMS = 1'b0;
-        jtag_TCK = 1'b0;
-        #100
-        jtag_TCK = 1'b1;
-        #100
-        jtag_TCK = 1'b0;
-
-        // dmi write
-        shift_reg = {6'h10, {(32){1'b0}}, 2'b10};
-
-        // SELECT-DR
-        jtag_TMS = 1'b1;
-        jtag_TCK = 1'b0;
-        #100
-        jtag_TCK = 1'b1;
-        #100
-        jtag_TCK = 1'b0;
-
-        // CAPTURE-DR
-        jtag_TMS = 1'b0;
-        jtag_TCK = 1'b0;
-        #100
-        jtag_TCK = 1'b1;
-        #100
-        jtag_TCK = 1'b0;
-
-        // SHIFT-DR
-        jtag_TMS = 1'b0;
-        jtag_TCK = 1'b0;
-        #100
-        jtag_TCK = 1'b1;
-        #100
-        jtag_TCK = 1'b0;
-
-        // SHIFT-DR & EXIT1-DR
-        for (i = 40; i > 0; i = i - 1) begin
-            if (shift_reg[0] == 1'b1)
-                jtag_TDI = 1'b1;
-            else
-                jtag_TDI = 1'b0;
-
-            if (i == 1)
-                jtag_TMS = 1'b1;
-
-            jtag_TCK = 1'b0;
-            #100
-            in = jtag_TDO;
-            jtag_TCK = 1'b1;
-            #100
-            jtag_TCK = 1'b0;
-
-            shift_reg = {in, shift_reg[39:1]};
-        end
-
-        // PAUSE-DR
-        jtag_TMS = 1'b0;
-        jtag_TCK = 1'b0;
-        #100
-        jtag_TCK = 1'b1;
-        #100
-        jtag_TCK = 1'b0;
-
-        // EXIT2-DR
-        jtag_TMS = 1'b1;
-        jtag_TCK = 1'b0;
-        #100
-        jtag_TCK = 1'b1;
-        #100
-        jtag_TCK = 1'b0;
-
-        // UPDATE-DR
-        jtag_TMS = 1'b1;
-        jtag_TCK = 1'b0;
-        #100
-        jtag_TCK = 1'b1;
-        #100
-        jtag_TCK = 1'b0;
-
-        // IDLE
-        jtag_TMS = 1'b0;
-        jtag_TCK = 1'b0;
-        #100
-        jtag_TCK = 1'b1;
-        #100
-        jtag_TCK = 1'b0;
-
-        $display("ir_reg = 0x%x", ir_reg);
-        $display("dtm_req_valid = %d", dtm_req_valid);
-        $display("req_data = 0x%x", req_data);
-
-        // IDLE
-        jtag_TMS = 1'b0;
-        jtag_TCK = 1'b0;
-        #100
-        jtag_TCK = 1'b1;
-        #100
-        jtag_TCK = 1'b0;
-
-        // IDLE
-        jtag_TMS = 1'b0;
-        jtag_TCK = 1'b0;
-        #100
-        jtag_TCK = 1'b1;
-        #100
-        jtag_TCK = 1'b0;
-
-        $display("dmstatus = 0x%x", dmstatus);
-
-        // IDLE
-        jtag_TMS = 1'b0;
-        jtag_TCK = 1'b0;
-        #100
-        jtag_TCK = 1'b1;
-        #100
-        jtag_TCK = 1'b0;
-
-        // SELECT-DR
-        jtag_TMS = 1'b1;
-        jtag_TCK = 1'b0;
-        #100
-        jtag_TCK = 1'b1;
-        #100
-        jtag_TCK = 1'b0;
-
-        // dmi read
-        shift_reg = {6'h11, {(32){1'b0}}, 2'b01};
-
-        // CAPTURE-DR
-        jtag_TMS = 1'b0;
-        jtag_TCK = 1'b0;
-        #100
-        jtag_TCK = 1'b1;
-        #100
-        jtag_TCK = 1'b0;
-
-        // SHIFT-DR
-        jtag_TMS = 1'b0;
-        jtag_TCK = 1'b0;
-        #100
-        jtag_TCK = 1'b1;
-        #100
-        jtag_TCK = 1'b0;
-
-        // SHIFT-DR & EXIT1-DR
-        for (i = 40; i > 0; i = i - 1) begin
-            if (shift_reg[0] == 1'b1)
-                jtag_TDI = 1'b1;
-            else
-                jtag_TDI = 1'b0;
-
-            if (i == 1)
-                jtag_TMS = 1'b1;
-
-            jtag_TCK = 1'b0;
-            #100
-            in = jtag_TDO;
-            jtag_TCK = 1'b1;
-            #100
-            jtag_TCK = 1'b0;
-
-            shift_reg = {in, shift_reg[39:1]};
-        end
-
-        // PAUSE-DR
-        jtag_TMS = 1'b0;
-        jtag_TCK = 1'b0;
-        #100
-        jtag_TCK = 1'b1;
-        #100
-        jtag_TCK = 1'b0;
-
-        // EXIT2-DR
-        jtag_TMS = 1'b1;
-        jtag_TCK = 1'b0;
-        #100
-        jtag_TCK = 1'b1;
-        #100
-        jtag_TCK = 1'b0;
-
-        // UPDATE-DR
-        jtag_TMS = 1'b1;
-        jtag_TCK = 1'b0;
-        #100
-        jtag_TCK = 1'b1;
-        #100
-        jtag_TCK = 1'b0;
-
-        // IDLE
-        jtag_TMS = 1'b0;
-        jtag_TCK = 1'b0;
-        #100
-        jtag_TCK = 1'b1;
-        #100
-        jtag_TCK = 1'b0;
-
-        // IDLE
-        jtag_TMS = 1'b0;
-        jtag_TCK = 1'b0;
-        #100
-        jtag_TCK = 1'b1;
-        #100
-        jtag_TCK = 1'b0;
-
-        // IDLE
-        jtag_TMS = 1'b0;
-        jtag_TCK = 1'b0;
-        #100
-        jtag_TCK = 1'b1;
-        #100
-        jtag_TCK = 1'b0;
-
-        // IDLE
-        jtag_TMS = 1'b0;
-        jtag_TCK = 1'b0;
-        #100
-        jtag_TCK = 1'b1;
-        #100
-        jtag_TCK = 1'b0;
-
-        // SELECT-DR
-        jtag_TMS = 1'b1;
-        jtag_TCK = 1'b0;
-        #100
-        jtag_TCK = 1'b1;
-        #100
-        jtag_TCK = 1'b0;
-
-        // dmi read
-        shift_reg = {6'h11, {(32){1'b0}}, 2'b00};
-
-        // CAPTURE-DR
-        jtag_TMS = 1'b0;
-        jtag_TCK = 1'b0;
-        #100
-        jtag_TCK = 1'b1;
-        #100
-        jtag_TCK = 1'b0;
-
-        // SHIFT-DR
-        jtag_TMS = 1'b0;
-        jtag_TCK = 1'b0;
-        #100
-        jtag_TCK = 1'b1;
-        #100
-        jtag_TCK = 1'b0;
-
-        // SHIFT-DR & EXIT1-DR
-        for (i = 40; i > 0; i = i - 1) begin
-            if (shift_reg[0] == 1'b1)
-                jtag_TDI = 1'b1;
-            else
-                jtag_TDI = 1'b0;
-
-            if (i == 1)
-                jtag_TMS = 1'b1;
-
-            jtag_TCK = 1'b0;
-            #100
-            in = jtag_TDO;
-            jtag_TCK = 1'b1;
-            #100
-            jtag_TCK = 1'b0;
-
-            shift_reg = {in, shift_reg[39:1]};
-        end
-
-        #100
-
-        $display("shift_reg = 0x%x", shift_reg[33:2]);
-
-        if (dmstatus == shift_reg[33:2]) begin
-            $display("######################");
-            $display("### jtag test pass ###");
-            $display("######################");
-        end else begin
-            $display("######################");
-            $display("!!! jtag test fail !!!");
-            $display("######################");
-        end
-`endif
 
         $finish;
     end
 
-    // sim timeout: instruction fetch now goes through chip_mem_bridge + fpga_mem_bridge.
     initial begin
-        #5000000
+        #2000000
+        $display("~~~~~~~~~~~~~~~~~~~ PWM TEST_FAIL ~~~~~~~~~~~~~~~~~~~");
         $display("Time Out.");
+        print_pwm_regs();
         $finish;
     end
 
     // Current ROM/RAM live on the FPGA side in fpga_mem_bridge.
-    // If your simulator runs from another directory, pass +INST=path/to/inst.data.
+    // If your simulator runs from another directory, pass +INST=path/to/PWM_inst_fast.data.
     initial begin
         if (!$value$plusargs("INST=%s", inst_file)) begin
-            inst_file = "E://learn/thu/digital_work/tinyriscv_2026/inst/Baisc_Inst_Example/inst_xori.data";
+            inst_file = "E://learn/thu/digital_work/tinyriscv_2026/inst/Other_Example/PWM/PWM_inst_fast.data";
         end
         $display("load inst file: %0s", inst_file);
         $readmemh(inst_file, fpga_mem_bridge_0.rom);
