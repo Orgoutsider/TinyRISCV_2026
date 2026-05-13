@@ -96,6 +96,7 @@ module tinyriscv_soc_top(
     wire[`MemBus] m3_data_o;
     wire m3_req_i;
     wire m3_we_i;
+    wire m3_ack_o;
 
     // slave 0: off-chip bridge
     wire[`MemAddrBus] s0_addr_o;
@@ -334,6 +335,7 @@ module tinyriscv_soc_top(
         .m3_data_o(m3_data_o),
         .m3_req_i(m3_req_i & chip_sel_i),
         .m3_we_i(m3_we_i),
+        .m3_ack_o(m3_ack_o),
 
         // slave 0 interface
         .s0_addr_o(s0_addr_o),
@@ -416,6 +418,7 @@ module tinyriscv_soc_top(
         .rst(core_rst),
         .debug_en_i(uart_debug_pin & chip_sel_i),
         .req_o(m3_req_i),
+        .bus_ack_i(m3_ack_o),
         .mem_we_o(m3_we_i),
         .mem_addr_o(m3_addr_i),
         .mem_wdata_o(m3_data_i),

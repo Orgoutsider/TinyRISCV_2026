@@ -34,6 +34,7 @@ module uart_debug(
     input  wire       rst,
     input  wire       debug_en_i,
     output wire       req_o,
+    input  wire       bus_ack_i,
     output reg        mem_we_o,
     output reg [31:0] mem_addr_o,
     output reg [31:0] mem_wdata_o,
@@ -80,7 +81,38 @@ module uart_debug(
     reg [5:0]  crc_byte_index;
     reg [2:0]  crc_bit_index;
 
-    assign req_o = (rst == 1'b1 && debug_en_i == 1'b1) ? 1'b1 : 1'b0;
+    reg [4:0] state_d;
+
+    reg [31:0] bus_rdata_q;
+
+    always @(posedge clk) begin
+        if (rst == `RstEnable || debug_en_i == 1'b0) begin
+            state_d <= S_IDLE;
+        end else begin
+            state_d <= state;
+        end
+    end
+
+    wire bus_req;
+
+    assign bus_req =
+        (state_d == S_IDLE) ||
+        (state_d == S_INIT_UART_CTRL) ||
+        (state_d == S_INIT_UART_BAUD) ||
+        (state_d == S_CLEAR_UART_RX_OVER_FLAG) ||
+        (state_d == S_WAIT_BYTE) ||
+        (state_d == S_GET_BYTE) ||
+        (state_d == S_WAIT_TX_IDLE) ||
+        (state_d == S_SEND_ACK) ||
+        (state_d == S_SEND_NAK) ||
+        (state_d == S_WRITE_MEM);
+        // (state_d == S_WAIT_BYTE2) ||
+        // (state_d == S_GET_BYTE2) ||
+        // (state_d == S_WAIT_TX_IDLE2);
+
+    assign req_o = (rst == 1'b1 && debug_en_i == 1'b1 && bus_req) ? 1'b1 : 1'b0;
+
+    // assign req_o = (rst == 1'b1 && debug_en_i == 1'b1) ? 1'b1 : 1'b0;
 
     always @(posedge clk) begin
         if (rst == `RstEnable || debug_en_i == 1'b0) begin
@@ -113,14 +145,22 @@ module uart_debug(
                     mem_addr_o <= `UART_CTRL_REG;
                     mem_wdata_o <= 32'h0000_0003;
                     mem_we_o <= `WriteEnable;
-                    state <= S_INIT_UART_CTRL;
+                    // state <= S_INIT_UART_CTRL;
+
+                    if (bus_ack_i) begin
+                        state <= S_INIT_UART_CTRL;
+                    end
                 end
 
                 S_INIT_UART_CTRL: begin
                     mem_addr_o <= `UART_BAUD_REG;
                     mem_wdata_o <= `UART_BAUD_115200;
                     mem_we_o <= `WriteEnable;
-                    state <= S_INIT_UART_BAUD;
+                    // state <= S_INIT_UART_BAUD;
+
+                    if (bus_ack_i) begin
+                        state <= S_INIT_UART_BAUD;
+                    end
                 end
 
                 S_INIT_UART_BAUD: begin
@@ -130,6 +170,12 @@ module uart_debug(
                 S_REC_FIRST_PACKET: begin
                     rx_index <= 6'd0;
                     packet_type <= PACKET_FIRST;
+
+                    // 不要输出 0 地址，而是直接准备下一拍要访问的 UART status：
+                    // mem_addr_o <= `UART_STATUS_REG;
+                    // mem_wdata_o <= 32'h0;
+                    // mem_we_o <= `WriteEnable;
+
                     state <= S_CLEAR_UART_RX_OVER_FLAG;
                 end
 
@@ -143,31 +189,74 @@ module uart_debug(
                     mem_addr_o <= `UART_STATUS_REG;
                     mem_wdata_o <= 32'h0000_0000;
                     mem_we_o <= `WriteEnable;
-                    state <= S_WAIT_BYTE;
+                    // state <= S_WAIT_BYTE;
+
+                    if (bus_ack_i) begin
+                        state <= S_WAIT_BYTE;
+                    end
                 end
+
+                // S_WAIT_BYTE: begin
+                //     mem_addr_o <= `UART_STATUS_REG;
+                //     state <= S_WAIT_BYTE2;
+                // end
+
+                // S_WAIT_BYTE2: begin
+                //     mem_addr_o <= `UART_STATUS_REG;
+                //     if ((mem_rdata_i & `UART_RX_OVER_FLAG) == `UART_RX_OVER_FLAG) begin
+                //         state <= S_GET_BYTE;
+                //     end else begin
+                //         state <= S_WAIT_BYTE;
+                //     end
+                // end
 
                 S_WAIT_BYTE: begin
                     mem_addr_o <= `UART_STATUS_REG;
-                    state <= S_WAIT_BYTE2;
+                    mem_we_o <= `WriteDisable;
+
+                    if (bus_ack_i) begin
+                        bus_rdata_q <= mem_rdata_i;
+                        state <= S_WAIT_BYTE2;
+                    end
                 end
 
                 S_WAIT_BYTE2: begin
-                    mem_addr_o <= `UART_STATUS_REG;
-                    if ((mem_rdata_i & `UART_RX_OVER_FLAG) == `UART_RX_OVER_FLAG) begin
+                    if ((bus_rdata_q & `UART_RX_OVER_FLAG) == `UART_RX_OVER_FLAG) begin
                         state <= S_GET_BYTE;
                     end else begin
                         state <= S_WAIT_BYTE;
                     end
                 end
 
+                // S_GET_BYTE: begin
+                //     mem_addr_o <= `UART_RX_REG;
+                //     state <= S_GET_BYTE2;
+                // end
+
+                // S_GET_BYTE2: begin
+                //     mem_addr_o <= `UART_RX_REG;
+                //     rx_data[rx_index] <= mem_rdata_i[7:0];
+                //     if (rx_index == 6'd34) begin
+                //         state <= S_CRC_START;
+                //     end else begin
+                //         rx_index <= rx_index + 1'b1;
+                //         state <= S_CLEAR_UART_RX_OVER_FLAG;
+                //     end
+                // end
+
                 S_GET_BYTE: begin
                     mem_addr_o <= `UART_RX_REG;
-                    state <= S_GET_BYTE2;
+                    mem_we_o <= `WriteDisable;
+
+                    if (bus_ack_i) begin
+                        bus_rdata_q <= mem_rdata_i;
+                        state <= S_GET_BYTE2;
+                    end
                 end
 
                 S_GET_BYTE2: begin
-                    mem_addr_o <= `UART_RX_REG;
-                    rx_data[rx_index] <= mem_rdata_i[7:0];
+                    rx_data[rx_index] <= bus_rdata_q[7:0];
+
                     if (rx_index == 6'd34) begin
                         state <= S_CRC_START;
                     end else begin
@@ -238,6 +327,30 @@ module uart_debug(
                     end
                 end
 
+                // S_WRITE_MEM: begin
+                //     mem_we_o <= `WriteEnable;
+                //     mem_addr_o <= write_mem_addr + {27'h0, write_word_cnt, 2'b00};
+                //     case (write_word_cnt)
+                //         3'd0: mem_wdata_o <= {rx_data[4],  rx_data[3],  rx_data[2],  rx_data[1]};
+                //         3'd1: mem_wdata_o <= {rx_data[8],  rx_data[7],  rx_data[6],  rx_data[5]};
+                //         3'd2: mem_wdata_o <= {rx_data[12], rx_data[11], rx_data[10], rx_data[9]};
+                //         3'd3: mem_wdata_o <= {rx_data[16], rx_data[15], rx_data[14], rx_data[13]};
+                //         3'd4: mem_wdata_o <= {rx_data[20], rx_data[19], rx_data[18], rx_data[17]};
+                //         3'd5: mem_wdata_o <= {rx_data[24], rx_data[23], rx_data[22], rx_data[21]};
+                //         3'd6: mem_wdata_o <= {rx_data[28], rx_data[27], rx_data[26], rx_data[25]};
+                //         default: mem_wdata_o <= {rx_data[32], rx_data[31], rx_data[30], rx_data[29]};
+                //     endcase
+
+                //     if (write_word_cnt == 3'd7) begin
+                //         write_word_cnt <= 3'd0;
+                //         write_mem_addr <= write_mem_addr + 32'd32;
+                //         remain_packet_count <= remain_packet_count - 1'b1;
+                //         state <= S_WAIT_TX_IDLE;
+                //     end else begin
+                //         write_word_cnt <= write_word_cnt + 1'b1;
+                //     end
+                // end
+
                 S_WRITE_MEM: begin
                     mem_we_o <= `WriteEnable;
                     mem_addr_o <= write_mem_addr + {27'h0, write_word_cnt, 2'b00};
@@ -252,61 +365,110 @@ module uart_debug(
                         default: mem_wdata_o <= {rx_data[32], rx_data[31], rx_data[30], rx_data[29]};
                     endcase
 
-                    if (write_word_cnt == 3'd7) begin
-                        write_word_cnt <= 3'd0;
-                        write_mem_addr <= write_mem_addr + 32'd32;
-                        remain_packet_count <= remain_packet_count - 1'b1;
-                        state <= S_WAIT_TX_IDLE;
-                    end else begin
-                        write_word_cnt <= write_word_cnt + 1'b1;
+                    if (bus_ack_i) begin
+                        if (write_word_cnt == 3'd7) begin
+                            write_word_cnt <= 3'd0;
+                            write_mem_addr <= write_mem_addr + 32'd32;
+                            remain_packet_count <= remain_packet_count - 1'b1;
+                            state <= S_WAIT_TX_IDLE;
+                        end else begin
+                            write_word_cnt <= write_word_cnt + 1'b1;
+                        end
                     end
                 end
+
+                // S_WAIT_TX_IDLE: begin
+                //     mem_addr_o <= `UART_STATUS_REG;
+                //     state <= S_WAIT_TX_IDLE2;
+                // end
+
+                // S_WAIT_TX_IDLE2: begin
+                //     mem_addr_o <= `UART_STATUS_REG;
+                //     if ((mem_rdata_i & `UART_TX_BUSY_FLAG) == 32'h0000_0000) begin
+                //         if (response_type == RESP_ACK) begin
+                //             state <= S_SEND_ACK;
+                //         end else begin
+                //             state <= S_SEND_NAK;
+                //         end
+                //     end else begin
+                //         state <= S_WAIT_TX_IDLE;
+                //     end
+                // end
 
                 S_WAIT_TX_IDLE: begin
                     mem_addr_o <= `UART_STATUS_REG;
-                    state <= S_WAIT_TX_IDLE2;
+                    mem_we_o <= `WriteDisable;
+
+                    if (bus_ack_i) begin
+                        bus_rdata_q <= mem_rdata_i;
+                        state <= S_WAIT_TX_IDLE2;
+                    end
                 end
 
                 S_WAIT_TX_IDLE2: begin
-                    mem_addr_o <= `UART_STATUS_REG;
-                    if ((mem_rdata_i & `UART_TX_BUSY_FLAG) == 32'h0000_0000) begin
-                        if (response_type == RESP_ACK) begin
+                    if ((bus_rdata_q & `UART_TX_BUSY_FLAG) == 32'h0) begin
+                        if (response_type == RESP_ACK)
                             state <= S_SEND_ACK;
-                        end else begin
+                        else
                             state <= S_SEND_NAK;
-                        end
                     end else begin
                         state <= S_WAIT_TX_IDLE;
                     end
                 end
+
+                // S_SEND_ACK: begin
+                //     mem_addr_o <= `UART_TX_REG;
+                //     mem_wdata_o <= `UART_RESP_ACK;
+                //     mem_we_o <= `WriteEnable;
+                //     if (packet_type == PACKET_FIRST) begin
+                //         if (remain_packet_count == 32'h0000_0000) begin
+                //             state <= S_REC_FIRST_PACKET;
+                //         end else begin
+                //             state <= S_REC_REMAIN_PACKET;
+                //         end
+                //     end else begin
+                //         if (remain_packet_count == 32'h0000_0000) begin
+                //             state <= S_REC_FIRST_PACKET;
+                //         end else begin
+                //             state <= S_REC_REMAIN_PACKET;
+                //         end
+                //     end
+                // end
 
                 S_SEND_ACK: begin
                     mem_addr_o <= `UART_TX_REG;
                     mem_wdata_o <= `UART_RESP_ACK;
                     mem_we_o <= `WriteEnable;
-                    if (packet_type == PACKET_FIRST) begin
-                        if (remain_packet_count == 32'h0000_0000) begin
+
+                    if (bus_ack_i) begin
+                        if (remain_packet_count == 32'h0000_0000)
                             state <= S_REC_FIRST_PACKET;
-                        end else begin
+                        else
                             state <= S_REC_REMAIN_PACKET;
-                        end
-                    end else begin
-                        if (remain_packet_count == 32'h0000_0000) begin
-                            state <= S_REC_FIRST_PACKET;
-                        end else begin
-                            state <= S_REC_REMAIN_PACKET;
-                        end
                     end
                 end
+
+                // S_SEND_NAK: begin
+                //     mem_addr_o <= `UART_TX_REG;
+                //     mem_wdata_o <= `UART_RESP_NAK;
+                //     mem_we_o <= `WriteEnable;
+                //     if (packet_type == PACKET_FIRST) begin
+                //         state <= S_REC_FIRST_PACKET;
+                //     end else begin
+                //         state <= S_REC_REMAIN_PACKET;
+                //     end
+                // end
 
                 S_SEND_NAK: begin
                     mem_addr_o <= `UART_TX_REG;
                     mem_wdata_o <= `UART_RESP_NAK;
                     mem_we_o <= `WriteEnable;
-                    if (packet_type == PACKET_FIRST) begin
-                        state <= S_REC_FIRST_PACKET;
-                    end else begin
-                        state <= S_REC_REMAIN_PACKET;
+
+                    if (bus_ack_i) begin
+                        if (packet_type == PACKET_FIRST)
+                            state <= S_REC_FIRST_PACKET;
+                        else
+                            state <= S_REC_REMAIN_PACKET;
                     end
                 end
 

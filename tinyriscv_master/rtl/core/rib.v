@@ -40,6 +40,7 @@ module rib( // RIB仲裁与桥接模块
     output reg [`MemBus]     m3_data_o, // 主机3读数据
     input  wire              m3_req_i, // 主机3请求
     input  wire              m3_we_i, // 主机3写使能
+    output reg               m3_ack_o, // 主机3回应
 
     output reg [`MemAddrBus] s0_addr_o, // 从设备0地址
     output reg [`MemBus]     s0_data_o, // 从设备0写数据
@@ -209,6 +210,8 @@ module rib( // RIB仲裁与桥接模块
         m2_data_o = `ZeroWord; // 默认主机2读数据
         m3_data_o = `ZeroWord; // 默认主机3读数据
 
+        m3_ack_o = 0; // 默认主机3回应
+
         s0_addr_o = off_addr; // off-chip地址输出
         s0_data_o = off_wdata; // off-chip写数据输出
         s0_we_o = off_we; // off-chip写使能输出
@@ -237,7 +240,11 @@ module rib( // RIB仲裁与桥接模块
                         GRANT0: m0_data_o = s1_data_i; // 返回给主机0
                         GRANT1: m1_data_o = s1_data_i; // 返回给主机1
                         GRANT2: m2_data_o = s1_data_i; // 返回给主机2
-                        default: m3_data_o = s1_data_i; // 返回给主机3
+                        // default: m3_data_o = s1_data_i; // 返回给主机3
+                        default: begin
+                            m3_data_o = s1_data_i;
+                            m3_ack_o = 1'b1;
+                        end
                     endcase
                 end
                 4'h6: begin // PWM
@@ -248,7 +255,11 @@ module rib( // RIB仲裁与桥接模块
                         GRANT0: m0_data_o = s2_data_i; // 返回给主机0
                         GRANT1: m1_data_o = s2_data_i; // 返回给主机1
                         GRANT2: m2_data_o = s2_data_i; // 返回给主机2
-                        default: m3_data_o = s2_data_i; // 返回给主机3
+                        // default: m3_data_o = s2_data_i; // 返回给主机3
+                        default: begin
+                            m3_data_o = s2_data_i;
+                            m3_ack_o = 1'b1;
+                        end
                     endcase
                 end
                 4'h7: begin // I2C
@@ -259,19 +270,33 @@ module rib( // RIB仲裁与桥接模块
                         GRANT0: m0_data_o = s3_data_i; // 返回给主机0
                         GRANT1: m1_data_o = s3_data_i; // 返回给主机1
                         GRANT2: m2_data_o = s3_data_i; // 返回给主机2
-                        default: m3_data_o = s3_data_i; // 返回给主机3
+                        // default: m3_data_o = s3_data_i; // 返回给主机3
+                        default: begin
+                            m3_data_o = s3_data_i;
+                            m3_ack_o = 1'b1;
+                        end
                     endcase
                 end
-                default: begin end // 其他地址忽略
+                // default: begin end // 其他地址忽略
+                default: begin
+                    if (grant == GRANT3) begin
+                        m3_ack_o = 1'b1;  // 可选：避免非法地址让 uart_debug 死等
+                    end
+                end                
             endcase
         end
 
         if (state == ST_RESP) begin // off-chip响应阶段
+            m3_ack_o = 1'b0;
             case (owner) // 返回给拥有者
                 GRANT0: m0_data_o = off_rdata; // 主机0返回
                 GRANT1: m1_data_o = off_rdata; // 主机1返回
                 GRANT2: m2_data_o = off_rdata; // 主机2返回
-                default: m3_data_o = off_rdata; // 主机3返回
+                // default: m3_data_o = off_rdata; // 主机3返回
+                default: begin
+                    m3_data_o = off_rdata;
+                    m3_ack_o = 1'b1;
+                end
             endcase
         end
 
