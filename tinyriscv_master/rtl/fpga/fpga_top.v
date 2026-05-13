@@ -32,7 +32,7 @@ module fpga_top(
     // output wire       jtag_TDO,
 
     // PWM output.
-    output wire[3:0]  PWM_o,
+    output wire[2:0]  PWM_o,
 
     // I2C interface for LM75.
     output wire       io_scl,
@@ -41,6 +41,7 @@ module fpga_top(
 
     wire over;
     wire halted_ind;
+    wire [3:0] pwm_o;
     // Internal 8-bit bridge wires.
     // SoC -> FPGA memory bridge
     wire[7:0] chip_to_fpga_data;
@@ -52,6 +53,8 @@ module fpga_top(
 
     wire rst_key_up;
     wire debug_key_up;
+
+    assign PWM_o = pwm_o[2:0];
 
     /*
      * Chip-side SoC.
@@ -81,7 +84,7 @@ module fpga_top(
         .fpga_data_i     (fpga_to_chip_data),
         .fpga_data_o     (chip_to_fpga_data),
 
-        .pwm_o           (PWM_o),
+        .pwm_o           (pwm_o),
         .i2c_scl         (io_scl),
         .i2c_sda         (io_sda)
     );
@@ -96,7 +99,7 @@ module fpga_top(
      * It matches the protocol of chip_mem_bridge in tinyriscv_soc_top.
      */
     fpga_mem_bridge #(
-        .ROM_INIT_FILE   (ROM_INIT_FILE)
+        .ROM_INIT_FILE   ("")
     ) u_fpga_mem_bridge (
         .clk             (clk),
         .rst             (rst_key_up),
