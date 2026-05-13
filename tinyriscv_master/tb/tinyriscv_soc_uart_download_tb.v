@@ -478,10 +478,10 @@ module tinyriscv_soc_uart_download_tb;
         $finish;
     end
 
-    initial begin
-        $dumpfile("tinyriscv_soc_uart_download_tb.vcd");
-        $dumpvars(0, tinyriscv_soc_uart_download_tb);
-    end
+    // initial begin
+    //     $dumpfile("tinyriscv_soc_uart_download_tb.vcd");
+    //     $dumpvars(0, tinyriscv_soc_uart_download_tb);
+    // end
 
     tinyriscv_soc_top tinyriscv_soc_top_0(
         .clk(clk),
