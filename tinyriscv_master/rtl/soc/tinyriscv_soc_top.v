@@ -202,7 +202,7 @@ module tinyriscv_soc_top(
     // tinyriscv处理器核模块例化
     tinyriscv u_tinyriscv(
         .clk(clk),
-        .rst(core_rst),
+        .rst(core_rst & ~uart_debug_pin),
 
         .rib_ex_addr_o(m0_addr_i),
         .rib_ex_data_i(m0_data_o),
