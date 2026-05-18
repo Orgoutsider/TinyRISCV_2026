@@ -20,8 +20,8 @@ module custom_unit #( // 自定义指令执行模块
     parameter DEFAULT_ID5 = 8'h31, // 默认学号字节5（'1'）
     parameter DEFAULT_ID6 = 8'h30, // 默认学号字节6（'0'）
     parameter DEFAULT_ID7 = 8'h39, // 默认学号字节7（'9'）
-    parameter DEFAULT_ID8 = 8'h31, // 默认学号字节8（'1'）
-    parameter DEFAULT_ID9 = 8'h31  // 默认学号字节9（'1'）
+    parameter DEFAULT_ID8 = 8'h32, // 默认学号字节8（'2'）
+    parameter DEFAULT_ID9 = 8'h32  // 默认学号字节9（'2'）
 )( // 参数列表结束
     input  wire       clk, // 时钟信号
     input  wire       rst, // 复位信号

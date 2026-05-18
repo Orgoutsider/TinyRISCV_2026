@@ -5,8 +5,8 @@
 // Select exactly one extension test.
 // You can also override the downloaded program with +FW_DATA=path/to/file.data.
 // `define TEST_EXT_IF 1
-// `define TEST_EXT_sID 1
-`define TEST_EXT_Temp 1
+`define TEST_EXT_sID 1
+// `define TEST_EXT_Temp 1
 
 // UART-download based extension instruction testbench.
 // Flow:
@@ -409,8 +409,8 @@ module tinyriscv_soc_uart_download_ext_tb;
             expected_id[5] = 8'h31; // '1'
             expected_id[6] = 8'h30; // '0'
             expected_id[7] = 8'h39; // '9'
-            expected_id[8] = 8'h31; // '1'
-            expected_id[9] = 8'h31; // '1'
+            expected_id[8] = 8'h32; // '2'
+            expected_id[9] = 8'h32; // '2'
 
             $display("start sID extension check");
             // for (sid_i = 0; sid_i < 10; sid_i = sid_i + 1) begin

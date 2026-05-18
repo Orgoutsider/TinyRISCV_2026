@@ -4,9 +4,9 @@
 
 // select one option only
 // `define TEST_PROG  1
-`define TEST_EXT_IF 1
+// `define TEST_EXT_IF 1
 `define TEST_EXT_sID 1
-`define TEST_EXT_Temp 1
+// `define TEST_EXT_Temp 1
 //`define TEST_JTAG  1
 
 
@@ -607,8 +607,8 @@ module tinyriscv_soc_tb;
         expected_id[5] = 8'h31; // '1'
         expected_id[6] = 8'h30; // '0'
         expected_id[7] = 8'h39; // '9'
-        expected_id[8] = 8'h31; // '1'
-        expected_id[9] = 8'h31; // '1'
+        expected_id[8] = 8'h32; // '2'
+        expected_id[9] = 8'h32; // '2'
 
         for (sid_i = 0; sid_i < 10; sid_i = sid_i + 1) begin
             sid_recv_data[sid_i] = 8'h00;
